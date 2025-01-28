@@ -3,12 +3,14 @@
 
 from tree_sitter import Node
 
+from autosync.cpptranslator.patches.Helper import get_text
 from autosync.cpptranslator.patches.Patch import Patch
+from autosync.cpptranslator.patches.Helper import get_text_from_node
 
 
 class Assert(Patch):
     """
-    Patch   Remove asserts
+    Patch   replace `assert`|`report_fatal_error` with `CS_ASSERT`
     """
 
     def __init__(self, priority: int):
@@ -18,8 +20,8 @@ class Assert(Patch):
         return (
             "(expression_statement"
             "   (call_expression"
-            '       ((identifier) @id (#eq? @id "assert"))'
-            "       (argument_list)"
+            '       ((identifier) @id (#match? @id "assert|report_fatal_error"))'
+            "       ((argument_list) @arg_list)"
             "   )"
             ") @assert"
         )
@@ -28,4 +30,5 @@ class Assert(Patch):
         return "assert"
 
     def get_patch(self, captures: [(Node, str)], src: bytes, **kwargs) -> bytes:
-        return b""
+        args = get_text_from_node(src, captures[2][0])
+        return b"CS_ASSERT" + args + b";"

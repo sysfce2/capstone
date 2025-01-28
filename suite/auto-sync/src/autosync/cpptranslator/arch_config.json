@@ -5,6 +5,31 @@
     "diff_color_saved": "yellow",
     "diff_color_edited": "light_magenta",
     "patch_editor": "vim",
+    "patching": {
+      "apply_patch_only_to": {
+        "AddCSDetail": {
+          "files": [
+            "ARMInstPrinter.cpp",
+            "PPCInstPrinter.cpp",
+            "AArch64InstPrinter.cpp",
+            "LoongArchInstPrinter.cpp",
+            "MipsInstPrinter.cpp",
+            "SystemZInstPrinter.cpp",
+            "XtensaInstPrinter.cpp"
+          ]
+        },
+        "InlineToStaticInline": {
+          "files": [
+            "ARMAddressingModes.h"
+          ]
+        },
+        "PrintRegImmShift": {
+          "files": [
+            "ARMInstPrinter.cpp"
+          ]
+        }
+      }
+    },
     "nodes_to_diff": [
       {
         "node_type": "function_definition",
@@ -51,7 +76,7 @@
       "{LLVM_ROOT}/llvm/lib/Target/ARM/Utils/ARMBaseInfo.h"
     ]
   },
-   "PPC": {
+  "PPC": {
     "files_to_translate": [
       {
         "in": "{LLVM_ROOT}/llvm/lib/Target/PowerPC/Disassembler/PPCDisassembler.cpp",
@@ -59,9 +84,6 @@
       },{
         "in": "{LLVM_ROOT}/llvm/lib/Target/PowerPC/MCTargetDesc/PPCInstPrinter.cpp",
         "out": "PPCInstPrinter.c"
-      },{
-        "in": "{LLVM_ROOT}/llvm/lib/Target/PowerPC/MCTargetDesc/PPCInstPrinter.h",
-        "out": "PPCInstPrinter.h"
       },{
         "in": "{LLVM_ROOT}/llvm/lib/Target/PowerPC/MCTargetDesc/PPCMCTargetDesc.h",
         "out": "PPCMCTargetDesc.h"
@@ -124,6 +146,147 @@
     "files_for_template_search": [
       "{CPP_INC_OUT_DIR}/AlphaGenDisassemblerTables.inc",
       "{CPP_INC_OUT_DIR}/AlphaGenAsmWriter.inc"
+    ],
+    "templates_with_arg_deduction": [],
+    "manually_edited_files": []
+  },
+  "LoongArch": {
+    "files_to_translate": [
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/LoongArch/Disassembler/LoongArchDisassembler.cpp",
+        "out": "LoongArchDisassembler.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/LoongArch/MCTargetDesc/LoongArchInstPrinter.cpp",
+        "out": "LoongArchInstPrinter.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/LoongArch/MCTargetDesc/LoongArchInstPrinter.h",
+        "out": "LoongArchInstPrinter.h"
+      }
+    ],
+    "files_for_template_search": [
+      "{CPP_INC_OUT_DIR}/LoongArchGenDisassemblerTables.inc",
+      "{CPP_INC_OUT_DIR}/LoongArchGenAsmWriter.inc",
+      "{LLVM_ROOT}/llvm/lib/Target/LoongArch/Disassembler/LoongArchDisassembler.cpp",
+      "{LLVM_ROOT}/llvm/lib/Target/LoongArch/MCTargetDesc/LoongArchInstPrinter.cpp"
+    ],
+    "templates_with_arg_deduction": [],
+    "manually_edited_files": []
+  },
+  "Mips": {
+    "files_to_translate": [
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/Mips/Disassembler/MipsDisassembler.cpp",
+        "out": "MipsDisassembler.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/Mips/MCTargetDesc/MipsInstPrinter.cpp",
+        "out": "MipsInstPrinter.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/Mips/MCTargetDesc/MipsInstPrinter.h",
+        "out": "MipsInstPrinter.h"
+      }
+    ],
+    "files_for_template_search": [
+      "{CPP_INC_OUT_DIR}/MipsGenDisassemblerTables.inc",
+      "{LLVM_ROOT}/llvm/lib/Target/Mips/MCTargetDesc/MipsInstPrinter.cpp",
+      "{CPP_INC_OUT_DIR}/MipsGenAsmWriter.inc"
+    ],
+    "templates_with_arg_deduction": [
+      "DecodeINSVE_DF",
+      "DecodeDAHIDATIMMR6",
+      "DecodeDAHIDATI",
+      "DecodeAddiGroupBranch",
+      "DecodePOP35GroupBranchMMR6",
+      "DecodeDaddiGroupBranch",
+      "DecodePOP37GroupBranchMMR6",
+      "DecodePOP65GroupBranchMMR6",
+      "DecodePOP75GroupBranchMMR6",
+      "DecodeBlezlGroupBranch",
+      "DecodeBgtzlGroupBranch",
+      "DecodeBgtzGroupBranch",
+      "DecodeBlezGroupBranch",
+      "DecodeBgtzGroupBranchMMR6",
+      "DecodeBlezGroupBranchMMR6",
+      "DecodeDINS",
+      "DecodeDEXT",
+      "DecodeCRC",
+      "isReg"
+    ],
+    "manually_edited_files": []
+  },
+  "SystemZ": {
+    "files_to_translate": [
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/SystemZ/Disassembler/SystemZDisassembler.cpp",
+        "out": "SystemZDisassembler.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/SystemZ/MCTargetDesc/SystemZInstPrinter.cpp",
+        "out": "SystemZInstPrinter.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/SystemZ/MCTargetDesc/SystemZInstPrinter.h",
+        "out": "SystemZInstPrinter.h"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/SystemZ/MCTargetDesc/SystemZMCTargetDesc.cpp",
+        "out": "SystemZMCTargetDesc.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/SystemZ/MCTargetDesc/SystemZMCTargetDesc.h",
+        "out": "SystemZMCTargetDesc.h"
+      }
+    ],
+    "files_for_template_search": [
+      "{CPP_INC_OUT_DIR}/SystemZGenDisassemblerTables.inc",
+      "{CPP_INC_OUT_DIR}/SystemZGenAsmWriter.inc",
+      "{LLVM_ROOT}/llvm/lib/Target/SystemZ/Disassembler/SystemZDisassembler.cpp",
+      "{LLVM_ROOT}/llvm/lib/Target/SystemZ/MCTargetDesc/SystemZInstPrinter.cpp"
+    ],
+    "templates_with_arg_deduction": [],
+    "manually_edited_files": []
+  },
+  "Xtensa": {
+    "files_to_translate": [
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/Xtensa/Disassembler/XtensaDisassembler.cpp",
+        "out": "XtensaDisassembler.c"
+      },
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/Xtensa/MCTargetDesc/XtensaInstPrinter.cpp",
+        "out": "XtensaInstPrinter.c"
+      }
+    ],
+    "files_for_template_search": [
+      "{CPP_INC_OUT_DIR}/XtensaGenDisassemblerTables.inc",
+      "{CPP_INC_OUT_DIR}/XtensaGenAsmWriter.inc"
+    ],
+    "templates_with_arg_deduction": [],
+    "manually_edited_files": []
+  },
+  "TriCore": {
+    "files_to_translate": [],
+    "files_for_template_search": [],
+    "templates_with_arg_deduction": [],
+    "manually_edited_files": []
+  },
+  "ARC": {
+    "files_to_translate": [
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/ARC/Disassembler/ARCDisassembler.cpp",
+        "out": "ARCDisassembler.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/ARC/MCTargetDesc/ARCInstPrinter.cpp",
+        "out": "ARCInstPrinter.c"
+      },{
+        "in": "{LLVM_ROOT}/llvm/lib/Target/ARC/MCTargetDesc/ARCInstPrinter.h",
+        "out": "ARCInstPrinter.h"
+      },
+      {
+        "in": "{LLVM_ROOT}/llvm/lib/Target/ARC/MCTargetDesc/ARCInfo.h",
+        "out": "ARCInfo.h"
+      }
+    ],
+    "files_for_template_search": [
+      "{CPP_INC_OUT_DIR}/ARCGenDisassemblerTables.inc",
+      "{CPP_INC_OUT_DIR}/ARCGenAsmWriter.inc",
+      "{LLVM_ROOT}/llvm/lib/Target/ARC/Disassembler/ARCDisassembler.cpp",
+      "{LLVM_ROOT}/llvm/lib/Target/ARC/MCTargetDesc/ARCInstPrinter.cpp"
     ],
     "templates_with_arg_deduction": [],
     "manually_edited_files": []

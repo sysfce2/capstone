@@ -62,6 +62,16 @@ class Includes(Patch):
                 return res + get_PPC_includes(filename) + get_general_macros()
             case "AArch64":
                 return res + get_AArch64_includes(filename) + get_general_macros()
+            case "LoongArch":
+                return res + get_LoongArch_includes(filename) + get_general_macros()
+            case "Mips":
+                return res + get_Mips_includes(filename) + get_general_macros()
+            case "SystemZ":
+                return res + get_SystemZ_includes(filename) + get_general_macros()
+            case "Xtensa":
+                return res + get_Xtensa_includes(filename) + get_general_macros()
+            case "ARC":
+                return res + get_ARC_includes(filename) + get_general_macros()
             case "TEST_ARCH":
                 return res + b"test_output"
             case _:
@@ -243,7 +253,6 @@ def get_AArch64_includes(filename: str) -> bytes:
         case "AArch64BaseInfo.h":
             return (
                 b'#include "../../utils.h"\n'
-                + b'#include "capstone/arm.h"\n\n'
                 + b"#define GET_REGINFO_ENUM\n"
                 + b'#include "AArch64GenRegisterInfo.inc"\n\n'
                 + b"#define GET_INSTRINFO_ENUM\n"
@@ -252,6 +261,187 @@ def get_AArch64_includes(filename: str) -> bytes:
         case "AArch64AddressingModes.h":
             return b"#include <assert.h>\n" + b'#include "../../MathExtras.h"\n\n'
     log.fatal(f"No includes given for AArch64 source file: {filename}")
+    exit(1)
+
+
+def get_LoongArch_includes(filename: str) -> bytes:
+    match filename:
+        case "LoongArchDisassembler.cpp":
+            return (
+                b'#include "../../MCInst.h"\n'
+                + b'#include "../../MathExtras.h"\n'
+                + b'#include "../../MCInstPrinter.h"\n'
+                + b'#include "../../MCDisassembler.h"\n'
+                + b'#include "../../MCFixedLenDisassembler.h"\n'
+                + b'#include "../../cs_priv.h"\n'
+                + b'#include "../../utils.h"\n'
+                + b'#include "LoongArchDisassemblerExtension.h"\n'
+                + b"#define GET_SUBTARGETINFO_ENUM\n"
+                + b'#include "LoongArchGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_INSTRINFO_ENUM\n"
+                + b'#include "LoongArchGenInstrInfo.inc"\n\n'
+                + b"#define GET_REGINFO_ENUM\n"
+                + b'#include "LoongArchGenRegisterInfo.inc"\n\n'
+            )
+        case "LoongArchInstPrinter.cpp":
+            return (
+                b'#include "LoongArchMapping.h"\n'
+                + b'#include "LoongArchInstPrinter.h"\n\n'
+                + b"#define GET_SUBTARGETINFO_ENUM\n"
+                + b'#include "LoongArchGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_INSTRINFO_ENUM\n"
+                + b'#include "LoongArchGenInstrInfo.inc"\n\n'
+                + b"#define GET_REGINFO_ENUM\n"
+                + b'#include "LoongArchGenRegisterInfo.inc"\n\n'
+            )
+        case "LoongArchInstPrinter.h":
+            return (
+                b'#include "../../MCInstPrinter.h"\n' + b'#include "../../cs_priv.h"\n'
+            )
+    log.fatal(f"No includes given for LoongArch source file: {filename}")
+    exit(1)
+
+
+def get_Mips_includes(filename: str) -> bytes:
+    match filename:
+        case "MipsDisassembler.cpp":
+            return (
+                b'#include "../../MCInst.h"\n'
+                + b'#include "../../MathExtras.h"\n'
+                + b'#include "../../MCInstPrinter.h"\n'
+                + b'#include "../../MCDisassembler.h"\n'
+                + b'#include "../../MCFixedLenDisassembler.h"\n'
+                + b'#include "../../cs_priv.h"\n'
+                + b'#include "../../utils.h"\n'
+                + b"#define GET_SUBTARGETINFO_ENUM\n"
+                + b'#include "MipsGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_INSTRINFO_ENUM\n"
+                + b'#include "MipsGenInstrInfo.inc"\n\n'
+                + b"#define GET_REGINFO_ENUM\n"
+                + b'#include "MipsGenRegisterInfo.inc"\n\n'
+            )
+        case "MipsInstPrinter.cpp":
+            return (
+                b'#include "MipsMapping.h"\n'
+                + b'#include "MipsInstPrinter.h"\n\n'
+                + b"#define GET_SUBTARGETINFO_ENUM\n"
+                + b'#include "MipsGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_INSTRINFO_ENUM\n"
+                + b'#include "MipsGenInstrInfo.inc"\n\n'
+                + b"#define GET_REGINFO_ENUM\n"
+                + b'#include "MipsGenRegisterInfo.inc"\n\n'
+            )
+        case "MipsInstPrinter.h":
+            return (
+                b'#include "../../MCInstPrinter.h"\n' + b'#include "../../cs_priv.h"\n'
+            )
+    log.fatal(f"No includes given for Mips source file: {filename}")
+    exit(1)
+
+
+def get_SystemZ_includes(filename: str) -> bytes:
+    match filename:
+        case "SystemZDisassembler.cpp":
+            return (
+                b'#include "../../MCInst.h"\n'
+                + b'#include "../../MathExtras.h"\n'
+                + b'#include "../../cs_priv.h"\n'
+                + b'#include "../../utils.h"\n\n'
+                + b'#include "SystemZMCTargetDesc.h"\n'
+                + b'#include "SystemZDisassemblerExtension.h"\n\n'
+                + b"#define GET_SUBTARGETINFO_ENUM\n"
+                + b'#include "SystemZGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_INSTRINFO_ENUM\n"
+                + b'#include "SystemZGenInstrInfo.inc"\n\n'
+                + b"#define GET_REGINFO_ENUM\n"
+                + b'#include "SystemZGenRegisterInfo.inc"\n\n'
+            )
+        case "SystemZInstPrinter.cpp":
+            return (
+                b'#include "../../MCAsmInfo.h"\n'
+                + b'#include "SystemZMapping.h"\n'
+                + b'#include "SystemZInstPrinter.h"\n\n'
+                + b"#define GET_SUBTARGETINFO_ENUM\n"
+                + b'#include "SystemZGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_INSTRINFO_ENUM\n"
+                + b'#include "SystemZGenInstrInfo.inc"\n\n'
+                + b"#define GET_REGINFO_ENUM\n"
+                + b'#include "SystemZGenRegisterInfo.inc"\n\n'
+            )
+        case "SystemZInstPrinter.h":
+            return b"\n"
+        case "SystemZMCTargetDesc.h":
+            return (
+                b'#include "../../MCInstPrinter.h"\n' + b'#include "../../cs_priv.h"\n'
+            )
+        case "SystemZMCTargetDesc.cpp":
+            return (
+                b'#include "../../MCInst.h"\n'
+                + b'#include "../../MCRegisterInfo.h"\n\n'
+                + b'#include "SystemZMCTargetDesc.h"\n'
+                + b'#include "SystemZInstPrinter.h"\n\n'
+                + b"#define GET_INSTRINFO_MC_DESC\n"
+                + b"#define ENABLE_INSTR_PREDICATE_VERIFIER\n"
+                + b'#include "SystemZGenInstrInfo.inc"\n\n'
+                + b"#define GET_SUBTARGETINFO_MC_DESC\n"
+                + b'#include "SystemZGenSubtargetInfo.inc"\n\n'
+                + b"#define GET_REGINFO_MC_DESC\n"
+                + b'#include "SystemZGenRegisterInfo.inc"\n\n'
+            )
+    log.fatal(f"No includes given for SystemZ source file: {filename}")
+    exit(1)
+
+
+def get_Xtensa_includes(filename: str) -> bytes:
+    match filename:
+        case "XtensaDisassembler.cpp":
+            return b"""
+#include "../../MathExtras.h"
+#include "../../MCDisassembler.h"
+#include "../../MCFixedLenDisassembler.h"
+#include "../../SStream.h"
+#include "../../cs_priv.h"
+#include "priv.h"
+
+#define GET_INSTRINFO_MC_DESC
+#include "XtensaGenInstrInfo.inc"
+
+"""
+        case "XtensaInstPrinter.cpp":
+            return b"""
+#include "../../MCInstPrinter.h"
+#include "../../SStream.h"
+#include "XtensaMapping.h"
+#include "priv.h"
+        """
+        case _:
+            return b""
+
+
+def get_ARC_includes(filename: str) -> bytes:
+    match filename:
+        case "ARCDisassembler.cpp":
+            return (
+                b'#include "../../MCInst.h"\n'
+                + b'#include "../../SStream.h"\n'
+                + b'#include "../../MCDisassembler.h"\n'
+                + b'#include "../../MCFixedLenDisassembler.h"\n'
+                + b'#include "../../MathExtras.h"\n'
+                + b'#include "../../utils.h"\n'
+            )
+        case "ARCInstPrinter.cpp":
+            return (
+                b'#include "../../SStream.h"\n'
+                + b'#include "../../MCInst.h"\n'
+                + b'#include "../../MCInstPrinter.h"\n'
+                + b'#include "ARCInfo.h"\n'
+                + b'#include "ARCInstPrinter.h"\n'
+                + b'#include "ARCLinkage.h"\n'
+                + b'#include "ARCMapping.h"\n'
+            )
+        case "ARCInstPrinter.h":
+            return b'#include "../../SStream.h"\n' + b'#include "../../MCInst.h"\n'
+    log.fatal(f"No includes given for ARC source file: {filename}")
     exit(1)
 
 

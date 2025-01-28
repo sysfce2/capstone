@@ -40,6 +40,7 @@ typedef enum CondCodes {
   ARMCC_LE, // Less than or equal         <, ==, or unordered
   ARMCC_AL, // Always (unconditional)     Always (unconditional)
   ARMCC_UNDEF = 15, // Undefined
+  ARMCC_Invalid = 16, // Invalid
 } ARMCC_CondCodes;
 
 inline static ARMCC_CondCodes ARMCC_getOppositeCondition(ARMCC_CondCodes CC)
@@ -125,6 +126,7 @@ typedef enum VPTCodes {
 ///   Txy = xy10
 ///   Txyz = xyz1
 typedef enum PredBlockMask {
+  ARM_PredBlockMaskInvalid = 0,
   ARM_T = 0x8, // 0b1000
   ARM_TT = 0x4, // 0b0100
   ARM_TE = 0xc, // 0b1100
@@ -251,16 +253,21 @@ inline static unsigned ARMCondCodeFromString(const char *CC)
 /// ARM shift type
 typedef enum arm_shifter {
 	ARM_SFT_INVALID = 0,
-	ARM_SFT_ASR,	///< shift with immediate const
-	ARM_SFT_LSL,	///< shift with immediate const
-	ARM_SFT_LSR,	///< shift with immediate const
-	ARM_SFT_ROR,	///< shift with immediate const
-	ARM_SFT_RRX,	///< shift with immediate const
-	ARM_SFT_ASR_REG,	///< shift with register
-	ARM_SFT_LSL_REG,	///< shift with register
-	ARM_SFT_LSR_REG,	///< shift with register
-	ARM_SFT_ROR_REG,	///< shift with register
-	ARM_SFT_RRX_REG,	///< shift with register
+	ARM_SFT_ASR,
+	ARM_SFT_LSL,
+	ARM_SFT_LSR,
+	ARM_SFT_ROR,
+	ARM_SFT_RRX,
+	ARM_SFT_UXTW,
+
+	// Added by Capstone to signal that the shift amount is stored in a register.
+	// shift.val should be interpreted as register id.
+	ARM_SFT_REG,
+	ARM_SFT_ASR_REG,
+	ARM_SFT_LSL_REG,
+	ARM_SFT_LSR_REG,
+	ARM_SFT_ROR_REG,
+	// Others are not defined in the ISA.
 } arm_shifter;
 
 /// The memory barrier constants map directly to the 4-bit encoding of
@@ -408,6 +415,7 @@ typedef enum {
 typedef union {
   arm_sysreg mclasssysreg;
   arm_bankedreg bankedreg;
+  int raw_val; ///< Raw value for assignment in generated files.
 } arm_sysop_reg;
 
 /// Operand type for instruction's operands
@@ -840,11 +848,8 @@ typedef enum arm_reg {
 typedef struct arm_op_mem {
 	arm_reg base;	///< base register
 	arm_reg index;	///< index register
-	int scale;	///< scale for index register (can be 1, or -1)
+	int scale;	///< scale for index register. Can be 1 if index reg is added, -1 if it is subtracted or 0 if unset.
 	int disp;	///< displacement/offset value
-	/// left-shift on index register, or 0 if irrelevant
-	/// NOTE: this value can also be fetched via operand.shift.value
-	int lshift;
   unsigned align; ///< Alignment of base register. 0 If not set.
 } arm_op_mem;
 
@@ -860,8 +865,8 @@ typedef struct cs_arm_op {
 	int vector_index;	///< Vector Index for some vector operands (or -1 if irrelevant)
 
 	struct {
-		arm_shifter type;
-		unsigned int value;
+		arm_shifter type; ///< The shift type
+		unsigned int value; ///< The amount to shift. If shift.type > ARM_SFT_REG, the value must be interpreted as register id.
 	} shift;
 
 	arm_op_type type;	///< operand type
@@ -890,7 +895,11 @@ typedef struct cs_arm_op {
 	int8_t neon_lane;
 } cs_arm_op;
 
-#define MAX_ARM_OPS 36
+typedef struct {
+	cs_ac_type mem_acc; ///< CGI memory access according to mayLoad and mayStore
+} arm_suppl_info;
+
+#define NUM_ARM_OPS 36
 
 /// Instruction structure
 typedef struct cs_arm {
@@ -903,14 +912,14 @@ typedef struct cs_arm {
 	ARMVCC_VPTCodes vcc;	///< Vector conditional code for this instruction.
 	bool update_flags;	///< does this insn update flags?
 	bool post_index;	///< only set if writeback is 'True', if 'False' pre-index, otherwise post.
-	int /* arm_mem_bo_opt */ mem_barrier;	///< Option for some memory barrier instructions
+	arm_mem_bo_opt mem_barrier; ///< Option for some memory barrier instructions
 	// Check ARM_PredBlockMask for encoding details.
 	uint8_t /* ARM_PredBlockMask */ pred_mask;	///< Used by IT/VPT block instructions.
 	/// Number of operands of this instruction,
 	/// or 0 when instruction has no operand.
 	uint8_t op_count;
 
-	cs_arm_op operands[MAX_ARM_OPS];	///< operands for this instruction.
+	cs_arm_op operands[NUM_ARM_OPS];	///< operands for this instruction.
 } cs_arm;
 
 /// ARM instruction
@@ -947,6 +956,8 @@ typedef enum arm_insn {
 	ARM_INS_LDRSH,
 	ARM_INS_MOVS,
 	ARM_INS_MOV,
+	ARM_INS_STRB,
+	ARM_INS_STRH,
 	ARM_INS_STR,
 	ARM_INS_ADC,
 	ARM_INS_ADD,
@@ -1359,13 +1370,11 @@ typedef enum arm_insn {
 	ARM_INS_STMDB,
 	ARM_INS_STM,
 	ARM_INS_STMIB,
-	ARM_INS_STRB,
 	ARM_INS_STRD,
 	ARM_INS_STREX,
 	ARM_INS_STREXB,
 	ARM_INS_STREXD,
 	ARM_INS_STREXH,
-	ARM_INS_STRH,
 	ARM_INS_STRHT,
 	ARM_INS_SUB,
 	ARM_INS_SVC,
@@ -1639,69 +1648,99 @@ typedef enum arm_insn_group {
 	// generated content <ARMGenCSFeatureEnum.inc> begin
 	// clang-format off
 
-	ARM_FEATURE_IsARM = 128,
-	ARM_FEATURE_HasV5T,
-	ARM_FEATURE_HasV4T,
-	ARM_FEATURE_HasVFP2,
-	ARM_FEATURE_HasV5TE,
-	ARM_FEATURE_HasV6T2,
-	ARM_FEATURE_HasMVEInt,
-	ARM_FEATURE_HasNEON,
-	ARM_FEATURE_HasFPRegs64,
-	ARM_FEATURE_HasFPRegs,
-	ARM_FEATURE_IsThumb2,
-	ARM_FEATURE_HasV8_1MMainline,
-	ARM_FEATURE_HasLOB,
-	ARM_FEATURE_IsThumb,
-	ARM_FEATURE_HasV8MBaseline,
-	ARM_FEATURE_Has8MSecExt,
-	ARM_FEATURE_HasV8,
-	ARM_FEATURE_HasAES,
-	ARM_FEATURE_HasBF16,
-	ARM_FEATURE_HasCDE,
-	ARM_FEATURE_PreV8,
-	ARM_FEATURE_HasV6K,
-	ARM_FEATURE_HasCRC,
-	ARM_FEATURE_HasV7,
-	ARM_FEATURE_HasDB,
-	ARM_FEATURE_HasVirtualization,
-	ARM_FEATURE_HasVFP3,
-	ARM_FEATURE_HasDPVFP,
-	ARM_FEATURE_HasFullFP16,
-	ARM_FEATURE_HasV6,
-	ARM_FEATURE_HasAcquireRelease,
-	ARM_FEATURE_HasV7Clrex,
-	ARM_FEATURE_HasMVEFloat,
-	ARM_FEATURE_HasFPRegsV8_1M,
-	ARM_FEATURE_HasMP,
-	ARM_FEATURE_HasSB,
-	ARM_FEATURE_HasDivideInARM,
-	ARM_FEATURE_HasV8_1a,
-	ARM_FEATURE_HasSHA2,
-	ARM_FEATURE_HasTrustZone,
-	ARM_FEATURE_UseNaClTrap,
-	ARM_FEATURE_HasV8_4a,
-	ARM_FEATURE_HasV8_3a,
-	ARM_FEATURE_HasFPARMv8,
-	ARM_FEATURE_HasFP16,
-	ARM_FEATURE_HasVFP4,
-	ARM_FEATURE_HasFP16FML,
-	ARM_FEATURE_HasFPRegs16,
-	ARM_FEATURE_HasV8MMainline,
-	ARM_FEATURE_HasDotProd,
-	ARM_FEATURE_HasMatMulInt8,
-	ARM_FEATURE_IsMClass,
-	ARM_FEATURE_HasPACBTI,
-	ARM_FEATURE_IsNotMClass,
-	ARM_FEATURE_HasDSP,
-	ARM_FEATURE_HasDivideInThumb,
-	ARM_FEATURE_HasV6M,
+	ARM_FEATURE_HASV4T = 128,
+	ARM_FEATURE_HASV5T,
+	ARM_FEATURE_HASV5TE,
+	ARM_FEATURE_HASV6,
+	ARM_FEATURE_HASV6M,
+	ARM_FEATURE_HASV8MBASELINE,
+	ARM_FEATURE_HASV8MMAINLINE,
+	ARM_FEATURE_HASV8_1MMAINLINE,
+	ARM_FEATURE_HASMVEINT,
+	ARM_FEATURE_HASMVEFLOAT,
+	ARM_FEATURE_HASCDE,
+	ARM_FEATURE_HASFPREGS,
+	ARM_FEATURE_HASFPREGS16,
+	ARM_FEATURE_HASNOFPREGS16,
+	ARM_FEATURE_HASFPREGS64,
+	ARM_FEATURE_HASFPREGSV8_1M,
+	ARM_FEATURE_HASV6T2,
+	ARM_FEATURE_HASV6K,
+	ARM_FEATURE_HASV7,
+	ARM_FEATURE_HASV8,
+	ARM_FEATURE_PREV8,
+	ARM_FEATURE_HASV8_1A,
+	ARM_FEATURE_HASV8_2A,
+	ARM_FEATURE_HASV8_3A,
+	ARM_FEATURE_HASV8_4A,
+	ARM_FEATURE_HASV8_5A,
+	ARM_FEATURE_HASV8_6A,
+	ARM_FEATURE_HASV8_7A,
+	ARM_FEATURE_HASVFP2,
+	ARM_FEATURE_HASVFP3,
+	ARM_FEATURE_HASVFP4,
+	ARM_FEATURE_HASDPVFP,
+	ARM_FEATURE_HASFPARMV8,
+	ARM_FEATURE_HASNEON,
+	ARM_FEATURE_HASSHA2,
+	ARM_FEATURE_HASAES,
+	ARM_FEATURE_HASCRYPTO,
+	ARM_FEATURE_HASDOTPROD,
+	ARM_FEATURE_HASCRC,
+	ARM_FEATURE_HASRAS,
+	ARM_FEATURE_HASLOB,
+	ARM_FEATURE_HASPACBTI,
+	ARM_FEATURE_HASFP16,
+	ARM_FEATURE_HASFULLFP16,
+	ARM_FEATURE_HASFP16FML,
+	ARM_FEATURE_HASBF16,
+	ARM_FEATURE_HASMATMULINT8,
+	ARM_FEATURE_HASDIVIDEINTHUMB,
+	ARM_FEATURE_HASDIVIDEINARM,
+	ARM_FEATURE_HASDSP,
+	ARM_FEATURE_HASDB,
+	ARM_FEATURE_HASDFB,
+	ARM_FEATURE_HASV7CLREX,
+	ARM_FEATURE_HASACQUIRERELEASE,
+	ARM_FEATURE_HASMP,
+	ARM_FEATURE_HASVIRTUALIZATION,
+	ARM_FEATURE_HASTRUSTZONE,
+	ARM_FEATURE_HAS8MSECEXT,
+	ARM_FEATURE_ISTHUMB,
+	ARM_FEATURE_ISTHUMB2,
+	ARM_FEATURE_ISMCLASS,
+	ARM_FEATURE_ISNOTMCLASS,
+	ARM_FEATURE_ISARM,
+	ARM_FEATURE_USENACLTRAP,
+	ARM_FEATURE_USENEGATIVEIMMEDIATES,
+	ARM_FEATURE_HASSB,
+	ARM_FEATURE_HASCLRBHB,
 
 	// clang-format on
 	// generated content <ARMGenCSFeatureEnum.inc> end
 
 	ARM_GRP_ENDING,
 } arm_insn_group;
+
+#ifdef CAPSTONE_ARM_COMPAT_HEADER
+#define arm_cc ARMCC_CondCodes
+#define ARM_CC_EQ ARMCC_EQ
+#define ARM_CC_NE ARMCC_NE
+#define ARM_CC_HS ARMCC_HS
+#define ARM_CC_LO ARMCC_LO
+#define ARM_CC_MI ARMCC_MI
+#define ARM_CC_PL ARMCC_PL
+#define ARM_CC_VS ARMCC_VS
+#define ARM_CC_VC ARMCC_VC
+#define ARM_CC_HI ARMCC_HI
+#define ARM_CC_LS ARMCC_LS
+#define ARM_CC_GE ARMCC_GE
+#define ARM_CC_LT ARMCC_LT
+#define ARM_CC_GT ARMCC_GT
+#define ARM_CC_LE ARMCC_LE
+#define ARM_CC_AL ARMCC_AL
+#define ARM_CC_INVALID ARMCC_Invalid
+#endif
 
 #ifdef __cplusplus
 }

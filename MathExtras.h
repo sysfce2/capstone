@@ -29,6 +29,8 @@
 #endif
 #endif
 
+#include <limits.h>
+
 // NOTE: The following support functions use the _32/_64 extensions instead of
 // type overloading so that signed and unsigned integers can be used without
 // ambiguity.
@@ -51,9 +53,9 @@ static inline bool isUIntN(unsigned N, uint64_t x) {
 
 /// isIntN - Checks if an signed integer fits into the given (dynamic)
 /// bit width.
-//static inline bool isIntN(unsigned N, int64_t x) {
-//  return N >= 64 || (-(INT64_C(1)<<(N-1)) <= x && x < (INT64_C(1)<<(N-1)));
-//}
+static inline bool isIntN(unsigned N, int64_t x) {
+  return N >= 64 || (-(INT64_C(1)<<(N-1)) <= x && x < (INT64_C(1)<<(N-1)));
+}
 
 /// isMask_32 - This function returns true if the argument is a sequence of ones
 /// starting at the least significant bit with the remainder zero (32 bit
@@ -280,15 +282,21 @@ static inline unsigned CountPopulation_64(uint64_t Value) {
 }
 
 /// Log2_32 - This function returns the floor log base 2 of the specified value,
-/// -1 if the value is zero. (32 bit edition.)
+/// UINT_MAX if the value is zero. (32 bit edition.)
 /// Ex. Log2_32(32) == 5, Log2_32(1) == 0, Log2_32(0) == -1, Log2_32(6) == 2
 static inline unsigned Log2_32(uint32_t Value) {
+	if (Value == 0) {
+		return UINT_MAX;
+	}
 	return 31 - CountLeadingZeros_32(Value);
 }
 
 /// Log2_64 - This function returns the floor log base 2 of the specified value,
-/// -1 if the value is zero. (64 bit edition.)
+/// UINT_MAX if the value is zero. (64 bit edition.)
 static inline unsigned Log2_64(uint64_t Value) {
+	if (Value == 0) {
+		return UINT32_MAX;
+	}
 	return 63 - CountLeadingZeros_64(Value);
 }
 
@@ -483,6 +491,14 @@ static inline uint32_t get_insn_field(uint32_t insn, uint8_t from, uint8_t to)
 static inline uint32_t get_insn_bit(uint32_t insn, uint8_t bit) 
 {
 	return get_insn_field(insn, bit, bit);
+}
+
+/// \brief Create a bitmask with the N right-most bits set to 1, and all other
+/// bits set to 0.  Only unsigned types are allowed.
+static inline uint32_t maskTrailingOnes32(uint32_t N) 
+{
+	const unsigned Bits = CHAR_BIT * sizeof(uint32_t);
+	return N == 0 ? 0 : (((uint32_t) -1) >> (Bits - N));
 }
 
 #endif

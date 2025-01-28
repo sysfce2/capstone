@@ -14,7 +14,7 @@ class AArch64OpMem(ctypes.Structure):
 
 class AArch64ImmRange(ctypes.Structure):
     _fields_ = (
-        ('imm', ctypes.c_int8),
+        ('first', ctypes.c_int8),
         ('offset', ctypes.c_int8),
     )
 
@@ -25,13 +25,20 @@ class AArch64SMESliceOffset(ctypes.Union):
     )
 
 class AArch64OpSme(ctypes.Structure):
-    _fileds_ = (
+    _fields_ = (
         ('type', ctypes.c_uint),
         ('tile', ctypes.c_uint),
         ('slice_reg', ctypes.c_uint),
         ('slice_offset', AArch64SMESliceOffset),
         ('has_range_offset', ctypes.c_bool),
         ('is_vertical', ctypes.c_bool),
+    )
+
+class AArch64OpPred(ctypes.Structure):
+    _fields_ = (
+        ('reg', ctypes.c_uint),
+        ('vec_select', ctypes.c_uint),
+        ('imm_index', ctypes.c_int),
     )
 
 class AArch64OpShift(ctypes.Structure):
@@ -45,14 +52,14 @@ class AArch64SysOpSysReg(ctypes.Union):
         ('sysreg', ctypes.c_uint),
         ('tlbi', ctypes.c_uint),
         ('ic', ctypes.c_uint),
-        ('raw_val', ctypes.c_uint64),
+        ('raw_val', ctypes.c_int),
     )
 
 class AArch64SysOpSysImm(ctypes.Union):
     _fields_ = (
         ('dbnxs', ctypes.c_uint),
         ('exactfpimm', ctypes.c_uint),
-        ('raw_val', ctypes.c_uint64),
+        ('raw_val', ctypes.c_int),
     )
 
 class AArch64SysOpSysAlias(ctypes.Union):
@@ -72,7 +79,7 @@ class AArch64SysOpSysAlias(ctypes.Union):
         ('bti', ctypes.c_uint),
         ('svepredpat', ctypes.c_uint),
         ('sveveclenspecifier', ctypes.c_uint),
-        ('raw_val', ctypes.c_uint64),
+        ('raw_val', ctypes.c_int),
     )
 class AArch64SysOp(ctypes.Structure):
     _fields_ = (
@@ -89,8 +96,8 @@ class AArch64OpValue(ctypes.Union):
         ('imm_range', AArch64ImmRange),
         ('fp', ctypes.c_double),
         ('mem', AArch64OpMem),
-        ('sysop', AArch64SysOp),
         ('sme', AArch64OpSme),
+        ('pred', AArch64OpPred),
     )
 
 class AArch64Op(ctypes.Structure):
@@ -100,7 +107,9 @@ class AArch64Op(ctypes.Structure):
         ('shift', AArch64OpShift),
         ('ext', ctypes.c_uint),
         ('type', ctypes.c_uint),
+        ('is_vreg', ctypes.c_bool),
         ('value', AArch64OpValue),
+        ('sysop', AArch64SysOp),
         ('access', ctypes.c_uint8),
         ('is_list_member', ctypes.c_bool),
     )
@@ -127,7 +136,7 @@ class AArch64Op(ctypes.Structure):
 
     @property
     def sysop(self):
-        return self.value.sysop
+        return self.sysop
 
     @property
     def sme(self):

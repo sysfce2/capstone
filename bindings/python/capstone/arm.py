@@ -7,11 +7,11 @@ from .arm_const import *
 # define the API
 class ArmOpMem(ctypes.Structure):
     _fields_ = (
-        ('base', ctypes.c_uint),
-        ('index', ctypes.c_uint),
+        ('base', ctypes.c_int),
+        ('index', ctypes.c_int),
         ('scale', ctypes.c_int),
         ('disp', ctypes.c_int),
-        ('lshift', ctypes.c_int),
+        ('align', ctypes.c_uint),
     )
 
 class ArmOpShift(ctypes.Structure):
@@ -24,6 +24,7 @@ class ArmSysopReg(ctypes.Union):
     _fields_ = (
         ('mclasssysreg', ctypes.c_uint),
         ('bankedreg', ctypes.c_uint),
+        ('raw_val', ctypes.c_int),
     )
 
 class ArmOpSysop(ctypes.Structure):
@@ -38,7 +39,7 @@ class ArmOpValue(ctypes.Union):
     _fields_ = (
         ('reg', ctypes.c_uint),
         ('sysop', ArmOpSysop),
-        ('imm', ctypes.c_int32),
+        ('imm', ctypes.c_int64),
         ('pred', ctypes.c_int),
         ('fp', ctypes.c_double),
         ('mem', ArmOpMem),

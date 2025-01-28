@@ -34,7 +34,7 @@ int main()
 	if (cs_support(CS_ARCH_SPARC)) {
 		printf("sparc=1 ");
 	}
-	if (cs_support(CS_ARCH_SYSZ)) {
+	if (cs_support(CS_ARCH_SYSTEMZ)) {
 		printf("sysz=1 ");
 	}
 	if (cs_support(CS_ARCH_XCORE)) {
@@ -78,6 +78,15 @@ int main()
 	}
 	if (cs_support(CS_ARCH_HPPA)) {
 		printf("hppa=1 ");
+	}
+	if (cs_support(CS_ARCH_LOONGARCH)) {
+		printf("loongarch=1 ");
+	}
+	if (cs_support(CS_ARCH_XTENSA)) {
+		printf("xtensa=1 ");
+	}
+	if (cs_support(CS_ARCH_ARC)) {
+		printf("arc=1 ");
 	}
 	printf("\n");
 

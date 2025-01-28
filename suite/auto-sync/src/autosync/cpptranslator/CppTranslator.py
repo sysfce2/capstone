@@ -6,6 +6,7 @@
 import argparse
 import logging as log
 import sys
+import re
 from pathlib import Path
 
 import termcolor
@@ -24,6 +25,7 @@ from autosync.cpptranslator.patches.ConstMCOperand import ConstMCOperand
 from autosync.cpptranslator.patches.CppInitCast import CppInitCast
 from autosync.cpptranslator.patches.CreateOperand0 import CreateOperand0
 from autosync.cpptranslator.patches.CreateOperand1 import CreateOperand1
+from autosync.cpptranslator.patches.Data import Data
 from autosync.cpptranslator.patches.DeclarationInConditionClause import (
     DeclarationInConditionalClause,
 )
@@ -48,12 +50,15 @@ from autosync.cpptranslator.patches.IsPredicate import IsPredicate
 from autosync.cpptranslator.patches.IsRegImm import IsOperandRegImm
 from autosync.cpptranslator.patches.LLVMFallThrough import LLVMFallThrough
 from autosync.cpptranslator.patches.LLVMunreachable import LLVMUnreachable
+from autosync.cpptranslator.patches.BadConditionCode import BadConditionCode
+from autosync.cpptranslator.patches.LLVM_DEBUG import LLVM_DEBUG
 from autosync.cpptranslator.patches.MethodToFunctions import MethodToFunction
 from autosync.cpptranslator.patches.MethodTypeQualifier import MethodTypeQualifier
 from autosync.cpptranslator.patches.NamespaceAnon import NamespaceAnon
 from autosync.cpptranslator.patches.NamespaceArch import NamespaceArch
 from autosync.cpptranslator.patches.NamespaceLLVM import NamespaceLLVM
 from autosync.cpptranslator.patches.OutStreamParam import OutStreamParam
+from autosync.cpptranslator.patches.Override import Override
 from autosync.cpptranslator.patches.Patch import Patch
 from autosync.cpptranslator.patches.PredicateBlockFunctions import (
     PredicateBlockFunctions,
@@ -65,6 +70,7 @@ from autosync.cpptranslator.patches.ReferencesDecl import ReferencesDecl
 from autosync.cpptranslator.patches.RegClassContains import RegClassContains
 from autosync.cpptranslator.patches.SetOpcode import SetOpcode
 from autosync.cpptranslator.patches.SignExtend import SignExtend
+from autosync.cpptranslator.patches.Size import Size
 from autosync.cpptranslator.patches.SizeAssignments import SizeAssignment
 from autosync.cpptranslator.patches.STIArgument import STIArgument
 from autosync.cpptranslator.patches.STIFeatureBits import STIFeatureBits
@@ -84,6 +90,7 @@ from autosync.Helper import (
     print_prominent_warning,
     run_clang_format,
 )
+from autosync.cpptranslator.patches.isUInt import IsUInt
 
 
 class Translator:
@@ -133,6 +140,7 @@ class Translator:
         CreateOperand0.__name__: 0,  # ◁───┐ `CreateOperand0` removes most calls to MI.addOperand().
         AddOperand.__name__: 1,  # ────────┘ The ones left are fixed with the `AddOperand` patch.
         CreateOperand1.__name__: 0,
+        IsUInt.__name__: 0,
         GetOpcode.__name__: 0,
         SetOpcode.__name__: 0,
         GetOperand.__name__: 0,
@@ -147,6 +155,8 @@ class Translator:
         Assert.__name__: 0,  # ◁─────────┐ The llvm_unreachable calls are replaced with asserts.
         LLVMUnreachable.__name__: 1,  # ─┘ Those assert should stay.
         LLVMFallThrough.__name__: 0,
+        BadConditionCode.__name__: 0,
+        LLVM_DEBUG.__name__: 0,
         DeclarationInConditionalClause.__name__: 0,
         StreamOperations.__name__: 0,
         OutStreamParam.__name__: 0,  # ◁──────┐ add_cs_detail() is added to printOperand functions with a certain
@@ -157,6 +167,9 @@ class Translator:
         NamespaceLLVM.__name__: 0,  # ◁─────┤ so they don't match in NamespaceArch.
         NamespaceArch.__name__: 1,  # ──────┘
         PredicateBlockFunctions.__name__: 0,
+        Override.__name__: 0,
+        Size.__name__: 0,
+        Data.__name__: 0,
         ClassesDef.__name__: 0,  # ◁────────┐ Declarations must be extracted first from the classes.
         MethodTypeQualifier.__name__: 1,  # ┘
         # All previous patches can contain qualified identifiers (Ids with the "::" operator) in their search patterns.
@@ -242,6 +255,8 @@ class Translator:
                     patch = CreateOperand0(p)
                 case CreateOperand1.__name__:
                     patch = CreateOperand1(p)
+                case IsUInt.__name__:
+                    patch = IsUInt(p)
                 case GetOpcode.__name__:
                     patch = GetOpcode(p)
                 case SetOpcode.__name__:
@@ -276,6 +291,8 @@ class Translator:
                     patch = Assert(p)
                 case LLVMFallThrough.__name__:
                     patch = LLVMFallThrough(p)
+                case BadConditionCode.__name__:
+                    patch = BadConditionCode(p)
                 case DeclarationInConditionalClause.__name__:
                     patch = DeclarationInConditionalClause(p)
                 case OutStreamParam.__name__:
@@ -312,6 +329,8 @@ class Translator:
                     patch = ConstMCInstParameter(p)
                 case LLVMUnreachable.__name__:
                     patch = LLVMUnreachable(p)
+                case LLVM_DEBUG.__name__:
+                    patch = LLVM_DEBUG(p)
                 case ClassConstructorDef.__name__:
                     patch = ClassConstructorDef(p)
                 case ConstMCOperand.__name__:
@@ -328,6 +347,12 @@ class Translator:
                     patch = PrintRegImmShift(p)
                 case IsOperandRegImm.__name__:
                     patch = IsOperandRegImm(p)
+                case Override.__name__:
+                    patch = Override(p)
+                case Size.__name__:
+                    patch = Size(p)
+                case Data.__name__:
+                    patch = Data(p)
                 case _:
                     log.fatal(f"Patch type {ptype} not in Patch init routine.")
                     exit(1)
@@ -370,32 +395,27 @@ class Translator:
 
     def apply_patch(self, patch: Patch) -> bool:
         """Tests if the given patch should be applied for the current architecture or file."""
-        has_apply_only = (
-            len(patch.apply_only_to["files"]) > 0
-            or len(patch.apply_only_to["archs"]) > 0
-        )
-        has_do_not_apply = (
-            len(patch.do_not_apply["files"]) > 0 or len(patch.do_not_apply["archs"]) > 0
-        )
-
-        if not (has_apply_only or has_do_not_apply):
-            # Lists empty.
+        apply_only_to = self.configurator.get_patch_config()["apply_patch_only_to"]
+        patch_name = patch.__class__.__name__
+        if patch_name not in apply_only_to:
+            # No constraints
             return True
 
-        if has_apply_only:
-            if self.arch in patch.apply_only_to["archs"]:
-                return True
-            elif self.current_src_path_in.name in patch.apply_only_to["files"]:
-                return True
-            return False
-        elif has_do_not_apply:
-            if self.arch in patch.do_not_apply["archs"]:
-                return False
-            elif self.current_src_path_in.name in patch.do_not_apply["files"]:
-                return False
+        file_constraints = apply_only_to[patch_name]
+        if self.current_src_path_in.name in file_constraints["files"]:
             return True
-        log.fatal("Logical error.")
-        exit(1)
+        elif (
+            re.search("InstPrinter.cpp", self.current_src_path_in.name)
+            and patch_name == AddCSDetail.__name__
+        ):
+            print_prominent_warning(
+                (
+                    f"The AddCSDetail patch is not applied to {self.current_src_path_in.name}. "
+                    "Have you forgotten to add it to arch_config.json?"
+                ),
+                False,
+            )
+        return False
 
     def translate(self) -> None:
         for self.current_src_path_in, self.current_src_path_out in zip(
@@ -422,7 +442,8 @@ class Translator:
                     else:
                         # A capture which is part of the main capture.
                         # Add it to the bundle.
-                        captures_bundle[-1].append(q)
+                        if len(captures_bundle) > 0:
+                            captures_bundle[-1].append(q)
 
                 log.debug(
                     f"Patch {patch.__class__.__name__} (to patch: {len(captures_bundle)})."
@@ -432,6 +453,8 @@ class Translator:
                 cb: [(Node, str)]
                 for cb in captures_bundle:
                     patch_kwargs = self.get_patch_kwargs(patch)
+                    patch_kwargs["tree"] = self.tree
+                    patch_kwargs["ts_cpp_lang"] = self.ts_cpp_lang
                     bytes_patch: bytes = patch.get_patch(cb, self.src, **patch_kwargs)
                     p_list.append((bytes_patch, cb[0][0]))
                 self.patch_src(p_list)

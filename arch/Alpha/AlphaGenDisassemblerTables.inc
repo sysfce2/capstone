@@ -12,6 +12,7 @@
 /* https://github.com/capstone-engine/llvm-capstone */
 
 #include "../../MCInst.h"
+#include "../../cs_priv.h"
 #include "../../LEB128.h"
 
 // Helper function for extracting fields from encoded instructions.
@@ -718,6 +719,7 @@ static bool checkDecoderPredicate(MCInst *Inst, unsigned Idx) {
 static DecodeStatus fname(DecodeStatus S, unsigned Idx, InsnType insn, MCInst *MI, \
 		uint64_t Address, const void *Decoder, bool *DecodeComplete) \
 { \
+  *DecodeComplete = true; \
   InsnType tmp; \
   switch (Idx) { \
   default: /* llvm_unreachable("Invalid index!"); */ \

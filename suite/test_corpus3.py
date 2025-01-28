@@ -38,13 +38,14 @@ def test_file(fname):
         "CS_ARCH_MIPS": CS_ARCH_MIPS,
         "CS_ARCH_PPC": CS_ARCH_PPC,
         "CS_ARCH_SPARC": CS_ARCH_SPARC,
-        "CS_ARCH_SYSZ": CS_ARCH_SYSZ,
+        "CS_ARCH_SYSTEMZ": CS_ARCH_SYSTEMZ,
         "CS_ARCH_X86": CS_ARCH_X86,
         "CS_ARCH_XCORE": CS_ARCH_XCORE,
         "CS_ARCH_RISCV": CS_ARCH_RISCV,
         "CS_ARCH_TRICORE": CS_ARCH_TRICORE,
         "CS_ARCH_ALPHA": CS_ARCH_ALPHA,
         "CS_ARCH_HPPA": CS_ARCH_HPPA,
+        "CS_ARCH_ARC": CS_ARCH_ARC,
     }
 
     modes = {
@@ -81,6 +82,7 @@ def test_file(fname):
         "CS_MODE_TRICORE_160": CS_MODE_TRICORE_160,
         "CS_MODE_TRICORE_161": CS_MODE_TRICORE_161,
         "CS_MODE_TRICORE_162": CS_MODE_TRICORE_162,
+        "CS_MODE_TRICORE_180": CS_MODE_TRICORE_180,
         "CS_MODE_BIG_ENDIAN+CS_MODE_QPX": CS_MODE_BIG_ENDIAN+CS_MODE_QPX,
         "CS_MODE_HPPA_11": CS_MODE_HPPA_11,
         "CS_MODE_HPPA_20": CS_MODE_HPPA_20,
@@ -107,7 +109,7 @@ def test_file(fname):
         ("CS_ARCH_PPC", "CS_MODE_BIG_ENDIAN"): 15,
         ("CS_ARCH_SPARC", "CS_MODE_BIG_ENDIAN"): 16,
         ("CS_ARCH_SPARC", "CS_MODE_BIG_ENDIAN+CS_MODE_V9"): 17,
-        ("CS_ARCH_SYSZ", "0"): 18,
+        ("CS_ARCH_SYSTEMZ", "CS_MODE_BIG_ENDIAN"): 18,
         ("CS_ARCH_XCORE", "0"): 19,
         ("CS_ARCH_MIPS", "CS_MODE_MIPS32R6+CS_MODE_BIG_ENDIAN"): 20,
         ("CS_ARCH_MIPS", "CS_MODE_MIPS32R6+CS_MODE_MICRO+CS_MODE_BIG_ENDIAN"): 21,
@@ -134,6 +136,8 @@ def test_file(fname):
         ("CS_ARCH_ALPHA", "CS_MODE_BIG_ENDIAN"): 56,
         ("CS_ARCH_HPPA", "CS_MODE_HPPA_11+CS_MODE_BIG_ENDIAN"): 57,
         ("CS_ARCH_HPPA", "CS_MODE_HPPA_20+CS_MODE_BIG_ENDIAN"): 58,
+        ("CS_ARCH_TRICORE", "CS_MODE_TRICORE_180"): 59,
+        ("CS_ARCH_ARC", "CS_MODE_LITTLE_ENDIAN"): 60,
     }
 
     # if not option in ('', 'None'):
@@ -160,10 +164,13 @@ def test_file(fname):
             with fpath.open('wb') as fout:
                 if (arch, mode) not in mc_modes:
                     print("fail", arch, mode)
+                if mode == "None":
+                    mode = "0"
                 fout.write(mc_modes[(arch, mode)].to_bytes(1, 'little'))
                 fout.write(hex_data)
         except Exception as e:
             print(f"skipping: {hex_code} with: {e}")
+            continue
 
 
 if __name__ == '__main__':

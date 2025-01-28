@@ -22,6 +22,7 @@ from autosync.cpptranslator.patches.ConstMCOperand import ConstMCOperand
 from autosync.cpptranslator.patches.CppInitCast import CppInitCast
 from autosync.cpptranslator.patches.CreateOperand0 import CreateOperand0
 from autosync.cpptranslator.patches.CreateOperand1 import CreateOperand1
+from autosync.cpptranslator.patches.Data import Data
 from autosync.cpptranslator.patches.DeclarationInConditionClause import (
     DeclarationInConditionalClause,
 )
@@ -45,7 +46,9 @@ from autosync.cpptranslator.patches.IsOptionalDef import IsOptionalDef
 from autosync.cpptranslator.patches.IsPredicate import IsPredicate
 from autosync.cpptranslator.patches.IsRegImm import IsOperandRegImm
 from autosync.cpptranslator.patches.LLVMFallThrough import LLVMFallThrough
+from autosync.cpptranslator.patches.LLVM_DEBUG import LLVM_DEBUG
 from autosync.cpptranslator.patches.LLVMunreachable import LLVMUnreachable
+from autosync.cpptranslator.patches.Override import Override
 from autosync.cpptranslator.patches.MethodToFunctions import MethodToFunction
 from autosync.cpptranslator.patches.MethodTypeQualifier import MethodTypeQualifier
 from autosync.cpptranslator.patches.NamespaceAnon import NamespaceAnon
@@ -62,6 +65,7 @@ from autosync.cpptranslator.patches.ReferencesDecl import ReferencesDecl
 from autosync.cpptranslator.patches.RegClassContains import RegClassContains
 from autosync.cpptranslator.patches.SetOpcode import SetOpcode
 from autosync.cpptranslator.patches.SignExtend import SignExtend
+from autosync.cpptranslator.patches.Size import Size
 from autosync.cpptranslator.patches.SizeAssignments import SizeAssignment
 from autosync.cpptranslator.patches.STIArgument import STIArgument
 from autosync.cpptranslator.patches.STIFeatureBits import STIFeatureBits
@@ -74,7 +78,9 @@ from autosync.cpptranslator.patches.TemplateRefs import TemplateRefs
 from autosync.cpptranslator.patches.UseMarkup import UseMarkup
 from autosync.cpptranslator.patches.UsingDeclaration import UsingDeclaration
 from autosync.cpptranslator.TemplateCollector import TemplateCollector
+from autosync.cpptranslator.patches.BadConditionCode import BadConditionCode
 from autosync.Helper import get_path
+from autosync.cpptranslator.patches.isUInt import IsUInt
 
 
 class TestPatches(unittest.TestCase):
@@ -103,7 +109,8 @@ class TestPatches(unittest.TestCase):
 
         self.assertGreater(len(captures_bundle), 0)
         for cb in captures_bundle:
-            self.assertEqual(patch.get_patch(cb, syntax, **kwargs), expected)
+            actual = patch.get_patch(cb, syntax, **kwargs)
+            self.assertEqual(actual, expected)
 
     def test_addcsdetail(self):
         patch = AddCSDetail(0, "ARCH")
@@ -111,8 +118,8 @@ class TestPatches(unittest.TestCase):
         self.check_patching_result(
             patch,
             syntax,
-            b"void printThumbLdrLabelOperand(MCInst *MI, unsigned OpNo, SStream *O){ "
-            b"add_cs_detail(MI, ARCH_OP_GROUP_ThumbLdrLabelOperand, OpNo); "
+            b"static inline void printThumbLdrLabelOperand(MCInst *MI, unsigned OpNo, SStream *O){ "
+            b"ARCH_add_cs_detail_0(MI, ARCH_OP_GROUP_ThumbLdrLabelOperand, OpNo); "
             b"int i = OpNo; "
             b"}",
         )
@@ -128,8 +135,8 @@ class TestPatches(unittest.TestCase):
 
     def test_assert(self):
         patch = Assert(0)
-        syntax = b"assert(0 == 0)"
-        self.check_patching_result(patch, syntax, b"")
+        syntax = b"assert(0 == 0);"
+        self.check_patching_result(patch, syntax, b"CS_ASSERT(0 == 0);")
 
     def test_bitcaststdarray(self):
         patch = BitCastStdArray(0)
@@ -215,6 +222,11 @@ public:
             b"MCInst_insert0(MI, I, MCOperand_CreateReg1(MI, (REGISTER)))",
         )
 
+    def test_data(self):
+        patch = Data(0)
+        syntax = b"Bytes.data()"
+        self.check_patching_result(patch, syntax, b"Bytes")
+
     def test_declarationinconditionclause(self):
         patch = DeclarationInConditionalClause(0)
         syntax = b"if (int i = 0) {}"
@@ -228,14 +240,14 @@ public:
         self.check_patching_result(
             patch,
             syntax,
-            b"decodeInstruction_2(DecoderTableThumb16,  MI,  Insn16,  Address)",
+            b"decodeInstruction_2(DecoderTableThumb16,  MI,  Insn16,  Address,  NULL)",
         )
 
         syntax = b"decodeInstruction(Table[i], MI, Insn16, Address, this, STI);"
         self.check_patching_result(
             patch,
             syntax,
-            b"decodeInstruction_2(Table[i],  MI,  Insn16,  Address)",
+            b"decodeInstruction_2(Table[i],  MI,  Insn16,  Address,  NULL)",
         )
 
     def test_decodercast(self):
@@ -285,6 +297,13 @@ public:
             b"fieldFromInstruction_4(Val, 0, 4)",
         )
 
+        syntax = b"static unsigned function(unsigned Insn) { return fieldFromInstruction(Insn, 6, 6); }"
+        self.check_patching_result(
+            patch,
+            syntax,
+            b"fieldFromInstruction_4(Insn, 6, 6)",
+        )
+
     def test_getnumoperands(self):
         patch = GetNumOperands(0)
         syntax = b"MI.getNumOperands();"
@@ -300,10 +319,20 @@ public:
         syntax = b"MI.getOperand(0);"
         self.check_patching_result(patch, syntax, b"MCInst_getOperand(MI, (0))")
 
-    def test_getoperandregimm(self):
+    def test_getoperandreg(self):
         patch = GetOperandRegImm(0)
         syntax = b"OPERAND.getReg()"
         self.check_patching_result(patch, syntax, b"MCOperand_getReg(OPERAND)")
+
+    def test_getoperandimm(self):
+        patch = GetOperandRegImm(0)
+        syntax = b"OPERAND.getImm()"
+        self.check_patching_result(patch, syntax, b"MCOperand_getImm(OPERAND)")
+
+    def test_getoperandexpr(self):
+        patch = GetOperandRegImm(0)
+        syntax = b"OPERAND.getExpr()"
+        self.check_patching_result(patch, syntax, b"MCOperand_getExpr(OPERAND)")
 
     def test_getregclass(self):
         patch = GetRegClass(0)
@@ -370,10 +399,20 @@ public:
             b"MCOperandInfo_isPredicate(&OpInfo[i])",
         )
 
-    def test_isregimm(self):
+    def test_isreg(self):
         patch = IsOperandRegImm(0)
         syntax = b"OPERAND.isReg()"
         self.check_patching_result(patch, syntax, b"MCOperand_isReg(OPERAND)")
+
+    def test_isimm(self):
+        patch = IsOperandRegImm(0)
+        syntax = b"OPERAND.isImm()"
+        self.check_patching_result(patch, syntax, b"MCOperand_isImm(OPERAND)")
+
+    def test_isexpr(self):
+        patch = IsOperandRegImm(0)
+        syntax = b"OPERAND.isExpr()"
+        self.check_patching_result(patch, syntax, b"MCOperand_isExpr(OPERAND)")
 
     def test_llvmfallthrough(self):
         patch = LLVMFallThrough(0)
@@ -383,7 +422,12 @@ public:
     def test_llvmunreachable(self):
         patch = LLVMUnreachable(0)
         syntax = b'llvm_unreachable("Error msg")'
-        self.check_patching_result(patch, syntax, b'assert(0 && "Error msg")')
+        self.check_patching_result(patch, syntax, b'CS_ASSERT(0 && "Error msg")')
+
+    def test_llvmdebug(self):
+        patch = LLVM_DEBUG(0)
+        syntax = b'LLVM_DEBUG(dbgs() << "Error msg")'
+        self.check_patching_result(patch, syntax, b"")
 
     def test_methodtofunctions(self):
         patch = MethodToFunction(0)
@@ -420,6 +464,11 @@ public:
         patch = OutStreamParam(0)
         syntax = b"void function(int a, raw_ostream &OS);"
         self.check_patching_result(patch, syntax, b"(int a, SStream *OS)")
+
+    def test_override(self):
+        patch = Override(0)
+        syntax = b"class a { void function(int a) override; };"
+        self.check_patching_result(patch, syntax, b"function(int a)")
 
     def test_predicateblockfunctions(self):
         patch = PredicateBlockFunctions(0)
@@ -468,6 +517,11 @@ public:
         patch = SignExtend(0)
         syntax = b"SignExtend32<A>(0)"
         self.check_patching_result(patch, syntax, b"SignExtend32((0), A)")
+
+    def test_size(self):
+        patch = Size(0)
+        syntax = b"Bytes.size()"
+        self.check_patching_result(patch, syntax, b"BytesLen")
 
     def test_sizeassignments(self):
         patch = SizeAssignment(0)
@@ -541,7 +595,7 @@ public:
     def test_templateparamdecl(self):
         patch = TemplateParamDecl(0)
         syntax = b"void function(ArrayRef<uint8_t> x);"
-        self.check_patching_result(patch, syntax, b"const uint8_t *x")
+        self.check_patching_result(patch, syntax, b"const uint8_t *x, size_t xLen")
 
     def test_templaterefs(self):
         patch = TemplateRefs(0)
@@ -561,3 +615,15 @@ public:
         patch = UsingDeclaration(0)
         syntax = b"using namespace llvm;"
         self.check_patching_result(patch, syntax, b"")
+
+    def test_isuintn(self):
+        patch = IsUInt(0)
+        syntax = b"isUInt<RegUnitBits>(FirstRU);"
+        self.check_patching_result(patch, syntax, b"isUIntN(RegUnitBits, FirstRU)")
+
+    def test_badconditioncode(self):
+        patch = BadConditionCode(0)
+        syntax = b"return BadConditionCode(BRCC)"
+        self.check_patching_result(
+            patch, syntax, b'CS_ASSERT(0 && "Unknown condition code passed");'
+        )

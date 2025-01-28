@@ -1,9 +1,7 @@
 /* Capstone Disassembly Engine */
 /* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2019 */
-#ifdef _MSC_VER
-#pragma warning(disable:4996)			// disable MSVC's warning on strcpy()
-#pragma warning(disable:28719)		// disable MSVC's warning on strcpy()
-#endif
+
+#include "SStream.h"
 #if defined(CAPSTONE_HAS_OSXKERNEL)
 #include <Availability.h>
 #include <libkern/libkern.h>
@@ -72,6 +70,9 @@
 #include "arch/TriCore/TriCoreModule.h"
 #include "arch/Alpha/AlphaModule.h"
 #include "arch/HPPA/HPPAModule.h"
+#include "arch/LoongArch/LoongArchModule.h"
+#include "arch/Xtensa/XtensaModule.h"
+#include "arch/ARC/ARCModule.h"
 
 typedef struct cs_arch_config {
 	// constructor initialization
@@ -99,8 +100,33 @@ typedef struct cs_arch_config {
 	{ \
 		Mips_global_init, \
 		Mips_option, \
-		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_32 | CS_MODE_64 | CS_MODE_MICRO \
-			| CS_MODE_MIPS32R6 | CS_MODE_BIG_ENDIAN | CS_MODE_MIPS2 | CS_MODE_MIPS3), \
+		~(CS_MODE_LITTLE_ENDIAN | \
+			CS_MODE_BIG_ENDIAN | \
+			CS_MODE_MIPS16 | \
+			CS_MODE_MIPS32 | \
+			CS_MODE_MIPS64 | \
+			CS_MODE_MICRO | \
+			CS_MODE_MIPS1 | \
+			CS_MODE_MIPS2 | \
+			CS_MODE_MIPS32R2 | \
+			CS_MODE_MIPS32R3 | \
+			CS_MODE_MIPS32R5 | \
+			CS_MODE_MIPS32R6 | \
+			CS_MODE_MIPS3 | \
+			CS_MODE_MIPS4 | \
+			CS_MODE_MIPS5 | \
+			CS_MODE_MIPS64R2 | \
+			CS_MODE_MIPS64R3 | \
+			CS_MODE_MIPS64R5 | \
+			CS_MODE_MIPS64R6 | \
+			CS_MODE_OCTEON | \
+			CS_MODE_OCTEONP | \
+			CS_MODE_NANOMIPS | \
+			CS_MODE_NMS1 | \
+			CS_MODE_I7200 | \
+			CS_MODE_MIPS_NOFLOAT | \
+			CS_MODE_MIPS_PTR64 \
+			), \
 	}
 #define CS_ARCH_CONFIG_X86 \
 	{ \
@@ -113,7 +139,9 @@ typedef struct cs_arch_config {
 		PPC_global_init, \
 		PPC_option, \
 		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_32 | CS_MODE_64 | CS_MODE_BIG_ENDIAN \
-				| CS_MODE_QPX | CS_MODE_PS | CS_MODE_BOOKE), \
+				| CS_MODE_QPX | CS_MODE_PS | CS_MODE_BOOKE | CS_MODE_SPE \
+				| CS_MODE_AIX_OS | CS_MODE_PWR7 | CS_MODE_PWR8 | CS_MODE_PWR9 \
+				| CS_MODE_PWR10 | CS_MODE_PPC_ISA_FUTURE | CS_MODE_MSYNC | CS_MODE_MODERN_AIX_AS), \
 	}
 #define CS_ARCH_CONFIG_SPARC \
 	{ \
@@ -121,11 +149,27 @@ typedef struct cs_arch_config {
 		Sparc_option, \
 		~(CS_MODE_BIG_ENDIAN | CS_MODE_V9), \
 	}
-#define CS_ARCH_CONFIG_SYSZ \
+#define CS_ARCH_CONFIG_SYSTEMZ \
 	{ \
 		SystemZ_global_init, \
 		SystemZ_option, \
-		~(CS_MODE_BIG_ENDIAN), \
+		~(CS_MODE_BIG_ENDIAN | \
+			CS_MODE_SYSTEMZ_ARCH8 | \
+			CS_MODE_SYSTEMZ_ARCH9 | \
+			CS_MODE_SYSTEMZ_ARCH10 | \
+			CS_MODE_SYSTEMZ_ARCH11 | \
+			CS_MODE_SYSTEMZ_ARCH12 | \
+			CS_MODE_SYSTEMZ_ARCH13 | \
+			CS_MODE_SYSTEMZ_ARCH14 | \
+			CS_MODE_SYSTEMZ_Z10 | \
+			CS_MODE_SYSTEMZ_Z196 | \
+			CS_MODE_SYSTEMZ_ZEC12 | \
+			CS_MODE_SYSTEMZ_Z13 | \
+			CS_MODE_SYSTEMZ_Z14 | \
+			CS_MODE_SYSTEMZ_Z15 | \
+			CS_MODE_SYSTEMZ_Z16 | \
+			CS_MODE_SYSTEMZ_GENERIC \
+		), \
 	}
 #define CS_ARCH_CONFIG_XCORE \
 	{ \
@@ -201,13 +245,33 @@ typedef struct cs_arch_config {
 		TRICORE_option, \
 		~(CS_MODE_TRICORE_110 | CS_MODE_TRICORE_120 | CS_MODE_TRICORE_130 \
 		| CS_MODE_TRICORE_131 | CS_MODE_TRICORE_160 | CS_MODE_TRICORE_161 \
-		| CS_MODE_TRICORE_162 | CS_MODE_LITTLE_ENDIAN), \
+		| CS_MODE_TRICORE_162 | CS_MODE_TRICORE_180 | CS_MODE_LITTLE_ENDIAN), \
 	}
 #define CS_ARCH_CONFIG_ALPHA \
 	{ \
 		ALPHA_global_init, \
 		ALPHA_option, \
 		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_BIG_ENDIAN), \
+	}
+#define CS_ARCH_CONFIG_LOONGARCH \
+	{ \
+		LoongArch_global_init, \
+		LoongArch_option, \
+		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_LOONGARCH32 | CS_MODE_LOONGARCH64), \
+	}
+#define CS_ARCH_CONFIG_XTENSA \
+	{ \
+		Xtensa_global_init, \
+		Xtensa_option, \
+		~(CS_MODE_XTENSA_ESP32 | CS_MODE_XTENSA_ESP32S2 | \
+		  CS_MODE_XTENSA_ESP8266), \
+	}
+
+#define CS_ARCH_CONFIG_ARC \
+	{ \
+		ARC_global_init, \
+		ARC_option, \
+		~(CS_MODE_LITTLE_ENDIAN), \
 	}
 
 #ifdef CAPSTONE_USE_ARCH_REGISTRATION
@@ -222,6 +286,11 @@ static const cs_arch_config arch_configs[MAX_ARCH] = {
 #endif
 #ifdef CAPSTONE_HAS_AARCH64
 	CS_ARCH_CONFIG_AARCH64,
+#else
+	{ NULL, NULL, 0 },
+#endif
+#ifdef CAPSTONE_HAS_SYSTEMZ
+	CS_ARCH_CONFIG_SYSTEMZ,
 #else
 	{ NULL, NULL, 0 },
 #endif
@@ -242,11 +311,6 @@ static const cs_arch_config arch_configs[MAX_ARCH] = {
 #endif
 #ifdef CAPSTONE_HAS_SPARC
 	CS_ARCH_CONFIG_SPARC,
-#else
-	{ NULL, NULL, 0 },
-#endif
-#ifdef CAPSTONE_HAS_SYSZ
-	CS_ARCH_CONFIG_SYSZ,
 #else
 	{ NULL, NULL, 0 },
 #endif
@@ -314,9 +378,24 @@ static const cs_arch_config arch_configs[MAX_ARCH] = {
 	{
 		HPPA_global_init,
 		HPPA_option,
-		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_BIG_ENDIAN | CS_MODE_HPPA_11
-		| CS_MODE_HPPA_20 | CS_MODE_HPPA_20W),
+		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_BIG_ENDIAN | CS_MODE_HPPA_11 |
+		  CS_MODE_HPPA_20 | CS_MODE_HPPA_20W),
 	},
+#else
+	{ NULL, NULL, 0 },
+#endif
+#ifdef CAPSTONE_HAS_LOONGARCH
+	CS_ARCH_CONFIG_LOONGARCH,
+#else
+	{ NULL, NULL, 0 },
+#endif
+#ifdef CAPSTONE_HAS_XTENSA
+	CS_ARCH_CONFIG_XTENSA,
+#else
+	{ NULL, NULL, 0 },
+#endif
+#ifdef CAPSTONE_HAS_ARC
+	CS_ARCH_CONFIG_ARC,
 #else
 	{ NULL, NULL, 0 },
 #endif
@@ -325,64 +404,73 @@ static const cs_arch_config arch_configs[MAX_ARCH] = {
 // bitmask of enabled architectures
 static const uint32_t all_arch = 0
 #ifdef CAPSTONE_HAS_ARM
-	| (1 << CS_ARCH_ARM)
+				 | (1 << CS_ARCH_ARM)
 #endif
 #if defined(CAPSTONE_HAS_AARCH64) || defined(CAPSTONE_HAS_ARM64)
-	| (1 << CS_ARCH_AARCH64)
+				 | (1 << CS_ARCH_AARCH64)
 #endif
 #ifdef CAPSTONE_HAS_MIPS
-	| (1 << CS_ARCH_MIPS)
+				 | (1 << CS_ARCH_MIPS)
 #endif
 #ifdef CAPSTONE_HAS_X86
-	| (1 << CS_ARCH_X86)
+				 | (1 << CS_ARCH_X86)
 #endif
 #ifdef CAPSTONE_HAS_POWERPC
-	| (1 << CS_ARCH_PPC)
+				 | (1 << CS_ARCH_PPC)
 #endif
 #ifdef CAPSTONE_HAS_SPARC
-	| (1 << CS_ARCH_SPARC)
+				 | (1 << CS_ARCH_SPARC)
 #endif
-#ifdef CAPSTONE_HAS_SYSZ
-	| (1 << CS_ARCH_SYSZ)
+#ifdef CAPSTONE_HAS_SYSTEMZ
+				 | (1 << CS_ARCH_SYSTEMZ)
 #endif
 #ifdef CAPSTONE_HAS_XCORE
-	| (1 << CS_ARCH_XCORE)
+				 | (1 << CS_ARCH_XCORE)
 #endif
 #ifdef CAPSTONE_HAS_M68K
-	| (1 << CS_ARCH_M68K)
+				 | (1 << CS_ARCH_M68K)
 #endif
 #ifdef CAPSTONE_HAS_TMS320C64X
-	| (1 << CS_ARCH_TMS320C64X)
+				 | (1 << CS_ARCH_TMS320C64X)
 #endif
 #ifdef CAPSTONE_HAS_M680X
-	| (1 << CS_ARCH_M680X)
+				 | (1 << CS_ARCH_M680X)
 #endif
 #ifdef CAPSTONE_HAS_EVM
-	| (1 << CS_ARCH_EVM)
+				 | (1 << CS_ARCH_EVM)
 #endif
 #ifdef CAPSTONE_HAS_MOS65XX
-	| (1 << CS_ARCH_MOS65XX)
+				 | (1 << CS_ARCH_MOS65XX)
 #endif
 #ifdef CAPSTONE_HAS_WASM
-	| (1 << CS_ARCH_WASM)
+				 | (1 << CS_ARCH_WASM)
 #endif
 #ifdef CAPSTONE_HAS_BPF
-	| (1 << CS_ARCH_BPF)
+				 | (1 << CS_ARCH_BPF)
 #endif
 #ifdef CAPSTONE_HAS_RISCV
-	| (1 << CS_ARCH_RISCV)
+				 | (1 << CS_ARCH_RISCV)
 #endif
 #ifdef CAPSTONE_HAS_SH
-	| (1 << CS_ARCH_SH)
+				 | (1 << CS_ARCH_SH)
 #endif
 #ifdef CAPSTONE_HAS_TRICORE
-	| (1 << CS_ARCH_TRICORE)
+				 | (1 << CS_ARCH_TRICORE)
 #endif
 #ifdef CAPSTONE_HAS_ALPHA
-	| (1 << CS_ARCH_ALPHA)
+				 | (1 << CS_ARCH_ALPHA)
 #endif
 #ifdef CAPSTONE_HAS_HPPA
-	| (1 << CS_ARCH_HPPA)
+				 | (1 << CS_ARCH_HPPA)
+#endif
+#ifdef CAPSTONE_HAS_LOONGARCH
+				 | (1 << CS_ARCH_LOONGARCH)
+#endif
+#ifdef CAPSTONE_HAS_XTENSA
+				 | (1 << CS_ARCH_XTENSA)
+#endif
+#ifdef CAPSTONE_HAS_ARC
+				 | (1 << CS_ARCH_ARC)
 #endif
 ;
 #endif
@@ -500,10 +588,10 @@ void CAPSTONE_API cs_arch_register_sparc(void)
 }
 
 CAPSTONE_EXPORT
-void CAPSTONE_API cs_arch_register_sysz(void)
+void CAPSTONE_API cs_arch_register_systemz(void)
 {
-#if defined(CAPSTONE_USE_ARCH_REGISTRATION) && defined(CAPSTONE_HAS_SYSZ)
-	CS_ARCH_REGISTER(SYSZ);
+#if defined(CAPSTONE_USE_ARCH_REGISTRATION) && defined(CAPSTONE_HAS_SYSTEMZ)
+	CS_ARCH_REGISTER(SYSTEMZ);
 #endif
 }
 
@@ -604,20 +692,39 @@ void CAPSTONE_API cs_arch_register_alpha(void)
 }
 
 CAPSTONE_EXPORT
+void CAPSTONE_API cs_arch_register_loongarch(void)
+{
+#if defined(CAPSTONE_USE_ARCH_REGISTRATION) && defined(CAPSTONE_HAS_LOONGARCH)
+	CS_ARCH_REGISTER(LOONGARCH);
+#endif
+}
+
+CAPSTONE_EXPORT
+void CAPSTONE_API cs_arch_register_arc(void)
+{
+#if defined(CAPSTONE_USE_ARCH_REGISTRATION) && defined(CAPSTONE_HAS_ARC)
+	CS_ARCH_REGISTER(ARC);
+#endif
+}
+
+
+CAPSTONE_EXPORT
 bool CAPSTONE_API cs_support(int query)
 {
 	if (query == CS_ARCH_ALL)
 		return all_arch ==
-				    ((1 << CS_ARCH_ARM)  | (1 << CS_ARCH_AARCH64)    |
-				    (1 << CS_ARCH_MIPS)  | (1 << CS_ARCH_X86)        |
-				    (1 << CS_ARCH_PPC)   | (1 << CS_ARCH_SPARC)      |
-				    (1 << CS_ARCH_SYSZ)  | (1 << CS_ARCH_XCORE)      |
-				    (1 << CS_ARCH_M68K)  | (1 << CS_ARCH_TMS320C64X) |
-				    (1 << CS_ARCH_M680X) | (1 << CS_ARCH_EVM)        |
-				    (1 << CS_ARCH_RISCV) | (1 << CS_ARCH_MOS65XX)    |
-				    (1 << CS_ARCH_WASM)  | (1 << CS_ARCH_BPF)        |
-				    (1 << CS_ARCH_SH)    | (1 << CS_ARCH_TRICORE)    |
-					(1 << CS_ARCH_ALPHA) | (1 << CS_ARCH_HPPA));
+		    ((1 << CS_ARCH_ARM) | (1 << CS_ARCH_AARCH64) |
+			(1 << CS_ARCH_MIPS) | (1 << CS_ARCH_X86) |
+			(1 << CS_ARCH_PPC) | (1 << CS_ARCH_SPARC) |
+			(1 << CS_ARCH_SYSTEMZ) | (1 << CS_ARCH_XCORE) |
+			(1 << CS_ARCH_M68K) | (1 << CS_ARCH_TMS320C64X) |
+			(1 << CS_ARCH_M680X) | (1 << CS_ARCH_EVM) |
+			(1 << CS_ARCH_RISCV) | (1 << CS_ARCH_MOS65XX) |
+			(1 << CS_ARCH_WASM) | (1 << CS_ARCH_BPF) |
+			(1 << CS_ARCH_SH) | (1 << CS_ARCH_TRICORE) |
+			(1 << CS_ARCH_ALPHA) | (1 << CS_ARCH_HPPA) |
+			(1 << CS_ARCH_LOONGARCH) | (1 << CS_ARCH_XTENSA) | 
+			(1 << CS_ARCH_ARC));
 
 	if ((unsigned int)query < CS_ARCH_MAX)
 		return all_arch & (1 << query);
@@ -697,7 +804,7 @@ CAPSTONE_EXPORT
 cs_err CAPSTONE_API cs_open(cs_arch arch, cs_mode mode, csh *handle)
 {
 	cs_err err;
-	struct cs_struct *ud;
+	struct cs_struct *ud = NULL;
 	if (!cs_mem_malloc || !cs_mem_calloc || !cs_mem_realloc || !cs_mem_free || !cs_vsnprintf)
 		// Error: before cs_open(), dynamic memory management must be initialized
 		// with cs_option(CS_OPT_MEM)
@@ -721,6 +828,7 @@ cs_err CAPSTONE_API cs_open(cs_arch arch, cs_mode mode, csh *handle)
 		ud->mode = mode;
 		// by default, do not break instruction into details
 		ud->detail_opt = CS_OPT_OFF;
+		ud->PrintBranchImmAsAddress = true;
 
 		// default skipdata setup
 		ud->skipdata_setup.mnemonic = SKIPDATA_MNEM;
@@ -736,6 +844,7 @@ cs_err CAPSTONE_API cs_open(cs_arch arch, cs_mode mode, csh *handle)
 
 		return CS_ERR_OK;
 	} else {
+		cs_mem_free(ud);
 		*handle = 0;
 		return CS_ERR_ARCH;
 	}
@@ -744,8 +853,8 @@ cs_err CAPSTONE_API cs_open(cs_arch arch, cs_mode mode, csh *handle)
 CAPSTONE_EXPORT
 cs_err CAPSTONE_API cs_close(csh *handle)
 {
-	struct cs_struct *ud;
-	struct insn_mnem *next, *tmp;
+	struct cs_struct *ud = NULL;
+	struct insn_mnem *next = NULL, *tmp = NULL;
 
 	if (*handle == 0)
 		// invalid handle
@@ -800,35 +909,14 @@ static int str_replace(char *result, char *target, const char *str1, char *str2)
 }
 #endif
 
-/// The asm string sometimes has a leading space or tab.
-/// Here we remove it.
-static void fixup_asm_string(char *asm_str) {
-	if (!asm_str) {
-		return;
-	}
-	int i = 0;
-	int k = 0;
-	bool text_reached = (asm_str[0] != ' ' && asm_str[0] != '\t');
-	while (asm_str[i]) {
-		if (!text_reached && (asm_str[i] == ' ' || asm_str[i] == '\t')) {
-			++i;
-			text_reached = true;
-			continue;
-		}
-		asm_str[k] = asm_str[i];
-		++k, ++i;
-	}
-	asm_str[k] = '\0';
-}
-
 // fill insn with mnemonic & operands info
-static void fill_insn(struct cs_struct *handle, cs_insn *insn, char *buffer, MCInst *mci,
+static void fill_insn(struct cs_struct *handle, cs_insn *insn, SStream *OS, MCInst *mci,
 		PostPrinter_t postprinter, const uint8_t *code)
 {
 #ifndef CAPSTONE_DIET
-	char *sp, *mnem;
+	char *sp;
 #endif
-	fixup_asm_string(buffer);
+	SStream_trimls(OS);
 	uint16_t copy_size = MIN(sizeof(insn->bytes), insn->size);
 
 	// fill the instruction bytes.
@@ -843,33 +931,28 @@ static void fill_insn(struct cs_struct *handle, cs_insn *insn, char *buffer, MCI
 
 	// post printer handles some corner cases (hacky)
 	if (postprinter)
-		postprinter((csh)handle, insn, buffer, mci);
+		postprinter((csh)handle, insn, OS, mci);
 
 #ifndef CAPSTONE_DIET
-	mnem = insn->mnemonic;
-	// memset(mnem, 0, CS_MNEMONIC_SIZE);
-	for (sp = buffer; *sp; sp++) {
-		if (*sp == ' '|| *sp == '\t')
-			break;
+	memset(insn->mnemonic, '\0', sizeof(insn->mnemonic));
+	memset(insn->op_str, '\0', sizeof(insn->op_str));
+	SStream_extract_mnem_opstr(OS, insn->mnemonic, sizeof(insn->mnemonic), insn->op_str, sizeof(insn->op_str));
+	for (sp = insn->mnemonic; *sp; sp++) {
 		if (*sp == '|')	// lock|rep prefix for x86
 			*sp = ' ';
-		// copy to @mnemonic
-		*mnem = *sp;
-		mnem++;
 	}
-
-	*mnem = '\0';
 
 	// we might have customized mnemonic
 	if (handle->mnem_list) {
 		struct insn_mnem *tmp = handle->mnem_list;
 		while(tmp) {
 			if (tmp->insn.id == insn->id) {
-				char str[CS_MNEMONIC_SIZE];
+				char str[CS_MNEMONIC_SIZE] = { 0 };
 
 				if (!str_replace(str, insn->mnemonic, cs_insn_name((csh)handle, insn->id), tmp->insn.mnemonic)) {
 					// copy result to mnemonic
-					(void)strncpy(insn->mnemonic, str, sizeof(insn->mnemonic) - 1);
+					CS_ASSERT_RET(sizeof(insn->mnemonic) == sizeof(str));
+					(void)memcpy(insn->mnemonic, str, sizeof(insn->mnemonic));
 					insn->mnemonic[sizeof(insn->mnemonic) - 1] = '\0';
 				}
 
@@ -878,17 +961,6 @@ static void fill_insn(struct cs_struct *handle, cs_insn *insn, char *buffer, MCI
 			tmp = tmp->next;
 		}
 	}
-
-	// copy @op_str
-	if (*sp) {
-		// find the next non-space char
-		sp++;
-		for (; ((*sp == ' ') || (*sp == '\t')); sp++);
-		strncpy(insn->op_str, sp, sizeof(insn->op_str) - 1);
-		insn->op_str[sizeof(insn->op_str) - 1] = '\0';
-	} else
-		insn->op_str[0] = '\0';
-
 #endif
 }
 
@@ -912,7 +984,7 @@ static uint8_t skipdata_size(cs_struct *handle)
 		case CS_ARCH_SPARC:
 			// skip 4 bytes
 			return 4;
-		case CS_ARCH_SYSZ:
+		case CS_ARCH_SYSTEMZ:
 			// SystemZ instruction's length can be 2, 4 or 6 bytes,
 			// so we just skip 2 bytes
 			return 2;
@@ -961,6 +1033,13 @@ static uint8_t skipdata_size(cs_struct *handle)
 		case CS_ARCH_HPPA:
 			// Hppa alignment is 4.
 			return 4;
+		case CS_ARCH_LOONGARCH:
+			// LoongArch alignment is 4.
+			return 4;
+		case CS_ARCH_ARC:
+			// ARC instruction's length can be 2, 4, 6 or 8 bytes,
+			// therefore, skip 2 bytes
+			return 2;
 	}
 }
 
@@ -1081,10 +1160,9 @@ cs_err CAPSTONE_API cs_option(csh ud, cs_opt_type type, size_t value)
 				return CS_ERR_OPTION;
 			}
 			break;
-		case CS_OPT_NO_BRANCH_OFFSET:
-			if (handle->PrintBranchImmNotAsAddress)
-				return CS_ERR_OK;
-			break;
+		case CS_OPT_ONLY_OFFSET_BRANCH:
+			handle->PrintBranchImmAsAddress = value == CS_OPT_ON ? false : true;
+			return CS_ERR_OK;
 	}
 
 	if (!arch_configs[handle->arch].arch_option)
@@ -1177,7 +1255,7 @@ size_t CAPSTONE_API cs_disasm(csh ud, const uint8_t *buffer, size_t size, uint64
 	insn_cache = total;
 
 	while (size > 0) {
-		MCInst_Init(&mci);
+		MCInst_Init(&mci, handle->arch);
 		mci.csh = handle;
 
 		// relative branches need to know the address & size of current insn
@@ -1185,7 +1263,8 @@ size_t CAPSTONE_API cs_disasm(csh ud, const uint8_t *buffer, size_t size, uint64
 
 		if (handle->detail_opt) {
 			// allocate memory for @detail pointer
-			insn_cache->detail = cs_mem_malloc(sizeof(cs_detail));
+			insn_cache->detail =
+				cs_mem_calloc(1, sizeof(cs_detail));
 		} else {
 			insn_cache->detail = NULL;
 		}
@@ -1211,7 +1290,7 @@ size_t CAPSTONE_API cs_disasm(csh ud, const uint8_t *buffer, size_t size, uint64
 			handle->insn_id(handle, insn_cache, mci.Opcode);
 
 			handle->printer(&mci, &ss, handle->printer_info);
-			fill_insn(handle, insn_cache, ss.buffer, &mci, handle->post_printer, buffer);
+			fill_insn(handle, insn_cache, &ss, &mci, handle->post_printer, buffer);
 
 			// adjust for pseudo opcode (X86)
 			if (handle->arch == CS_ARCH_X86 && insn_cache->id != X86_INS_VCMP)
@@ -1390,7 +1469,7 @@ bool CAPSTONE_API cs_disasm_iter(csh ud, const uint8_t **code, size_t *size,
 
 	handle->errnum = CS_ERR_OK;
 
-	MCInst_Init(&mci);
+	MCInst_Init(&mci, handle->arch);
 	mci.csh = handle;
 
 	// relative branches need to know the address & size of current insn
@@ -1417,7 +1496,7 @@ bool CAPSTONE_API cs_disasm_iter(csh ud, const uint8_t **code, size_t *size,
 
 		handle->printer(&mci, &ss, handle->printer_info);
 
-		fill_insn(handle, insn, ss.buffer, &mci, handle->post_printer, *code);
+		fill_insn(handle, insn, &ss, &mci, handle->post_printer, *code);
 
 		// adjust for pseudo opcode (X86)
 		if (handle->arch == CS_ARCH_X86)
@@ -1648,9 +1727,9 @@ int CAPSTONE_API cs_op_count(csh ud, const cs_insn *insn, unsigned int op_type)
 				if (insn->detail->sparc.operands[i].type == (sparc_op_type)op_type)
 					count++;
 			break;
-		case CS_ARCH_SYSZ:
-			for (i = 0; i < insn->detail->sysz.op_count; i++)
-				if (insn->detail->sysz.operands[i].type == (sysz_op_type)op_type)
+		case CS_ARCH_SYSTEMZ:
+			for (i = 0; i < insn->detail->systemz.op_count; i++)
+				if (insn->detail->systemz.operands[i].type == (systemz_op_type)op_type)
 					count++;
 			break;
 		case CS_ARCH_XCORE:
@@ -1708,6 +1787,16 @@ int CAPSTONE_API cs_op_count(csh ud, const cs_insn *insn, unsigned int op_type)
 		case CS_ARCH_HPPA:
 			for (i = 0; i < insn->detail->hppa.op_count; i++)
 				if (insn->detail->hppa.operands[i].type == (hppa_op_type)op_type)
+					count++;
+			break;
+		case CS_ARCH_LOONGARCH:
+			for (i = 0; i < insn->detail->loongarch.op_count; i++)
+				if (insn->detail->loongarch.operands[i].type == (loongarch_op_type)op_type)
+					count++;
+			break;
+		case CS_ARCH_ARC:
+			for (i = 0; i < insn->detail->arc.op_count; i++)
+				if (insn->detail->arc.operands[i].type == (arc_op_type)op_type)
 					count++;
 			break;
 	}
@@ -1795,9 +1884,9 @@ int CAPSTONE_API cs_op_index(csh ud, const cs_insn *insn, unsigned int op_type,
 					return i;
 			}
 			break;
-		case CS_ARCH_SYSZ:
-			for (i = 0; i < insn->detail->sysz.op_count; i++) {
-				if (insn->detail->sysz.operands[i].type == (sysz_op_type)op_type)
+		case CS_ARCH_SYSTEMZ:
+			for (i = 0; i < insn->detail->systemz.op_count; i++) {
+				if (insn->detail->systemz.operands[i].type == (systemz_op_type)op_type)
 					count++;
 				if (count == post)
 					return i;
@@ -1909,6 +1998,22 @@ int CAPSTONE_API cs_op_index(csh ud, const cs_insn *insn, unsigned int op_type,
 					return i;
 			}
 			break;
+		case CS_ARCH_LOONGARCH:
+			for (i = 0; i < insn->detail->loongarch.op_count; i++) {
+				if (insn->detail->loongarch.operands[i].type == (loongarch_op_type)op_type)
+					count++;
+				if (count == post)
+					return i;
+			}
+			break;
+		case CS_ARCH_ARC:
+			for (i = 0; i < insn->detail->arc.op_count; i++) {
+				if (insn->detail->arc.operands[i].type == (arc_op_type)op_type)
+					count++;
+				if (count == post)
+					return i;
+			}
+			break;
 	}
 
 	return -1;
@@ -1922,7 +2027,7 @@ cs_err CAPSTONE_API cs_regs_access(csh ud, const cs_insn *insn,
 	struct cs_struct *handle;
 
 	if (!ud)
-		return -1;
+		return CS_ERR_CSH;
 
 	handle = (struct cs_struct *)(uintptr_t)ud;
 

@@ -31,7 +31,7 @@ case $1 in
     ARCH=SPARC
     ;;
   SystemZ)
-    ARCH=SYSZ
+    ARCH=SYSTEMZ
     ;;
   XCore)
     ARCH=XCORE
@@ -62,6 +62,12 @@ case $1 in
     ;;
   HPPA)
     ARCH=HPPA
+    ;;
+  LOONGARCH)
+    ARCH=LOONGARCH
+    ;;
+  ARC)
+    ARCH=ARC
     ;;
   *)
     ;;

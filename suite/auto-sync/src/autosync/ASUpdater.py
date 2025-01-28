@@ -10,21 +10,27 @@ import os
 import shutil
 import subprocess
 import sys
+import json
 from enum import StrEnum
 from pathlib import Path
 
 from autosync.cpptranslator.Configurator import Configurator
 from autosync.cpptranslator.CppTranslator import Translator
-from autosync.HeaderPatcher import HeaderPatcher
-from autosync.Helper import check_py_version, convert_loglevel, fail_exit, get_path
+from autosync.HeaderPatcher import CompatHeaderBuilder, HeaderPatcher
+from autosync.Helper import convert_loglevel, fail_exit, get_path
 
 from autosync.IncGenerator import IncGenerator
+
+from autosync.MCUpdater import MCUpdater
+from autosync.Targets import ARCH_LLVM_NAMING, TARGET_TO_DIR_NAME
 
 
 class USteps(StrEnum):
     INC_GEN = "IncGen"
     TRANS = "Translate"
     DIFF = "Diff"
+    MC = "MCUpdate"
+    PATCH_HEADER = "PatchArchHeader"
     ALL = "All"
 
 
@@ -40,27 +46,47 @@ class ASUpdater:
         steps: list[USteps],
         inc_list: list,
         no_clean: bool,
-        refactor: bool,
+        copy_translated: bool,
         differ_no_auto_apply: bool,
         wait_for_user: bool = True,
     ) -> None:
         self.arch = arch
+        self.arch_dir_name = TARGET_TO_DIR_NAME[self.arch]
         self.write = write
         self.no_clean_build = no_clean
         self.inc_list = inc_list
         self.wait_for_user = wait_for_user
         if USteps.ALL in steps:
-            self.steps = [USteps.INC_GEN, USteps.TRANS, USteps.DIFF]
+            self.steps = [
+                USteps.INC_GEN,
+                USteps.TRANS,
+                USteps.DIFF,
+                USteps.MC,
+                USteps.PATCH_HEADER,
+            ]
         else:
             self.steps = steps
-        self.refactor = refactor
+        self.copy_translated = copy_translated
         self.differ_no_auto_apply = differ_no_auto_apply
-        self.arch_dir = get_path("{CS_ARCH_MODULE_DIR}").joinpath(self.arch)
+        self.arch_dir = get_path("{CS_ARCH_MODULE_DIR}").joinpath(
+            TARGET_TO_DIR_NAME[self.arch]
+        )
         if not self.no_clean_build:
             self.clean_build_dir()
         self.inc_generator = IncGenerator(
             self.arch,
             self.inc_list,
+        )
+        with open(get_path("{MCUPDATER_CONFIG_FILE}")) as f:
+            self.mcupdater_conf = json.loads(f.read())
+
+        self.mc_updater = MCUpdater(
+            self.arch,
+            get_path("{LLVM_MC_TEST_DIR}"),
+            None,
+            None,
+            self.arch in self.mcupdater_conf["unify_test_cases"],
+            multi_mode=True,
         )
 
     def clean_build_dir(self) -> None:
@@ -88,6 +114,20 @@ class ASUpdater:
             if patcher.patch_header():
                 # Save the path. This file should not be moved.
                 patched.append(file)
+        if self.arch == "AArch64":
+            builder = CompatHeaderBuilder(
+                v6=main_header,
+                v5=get_path("{CS_INCLUDE_DIR}").joinpath(f"arm64.h"),
+                arch="aarch64",
+            )
+            builder.generate_v5_compat_header()
+        elif self.arch == "AArch64":
+            builder = CompatHeaderBuilder(
+                v6=main_header,
+                v5=get_path("{CS_INCLUDE_DIR}").joinpath(f"systemz_compatibility.h"),
+                arch="systemz",
+            )
+            builder.generate_v5_compat_header()
         return patched
 
     def copy_files(self, path: Path, dest: Path) -> None:
@@ -137,19 +177,62 @@ class ASUpdater:
     def update(self) -> None:
         if USteps.INC_GEN in self.steps:
             self.inc_generator.generate()
-            # Runtime for large files is huge
-            # Use helper clang-format
-            # self.run_clang_format(self.conf["build_dir_path"].joinpath(C_INC_OUT_DIR))
-            patched = self.patch_main_header()
-            for file in get_path("{C_INC_OUT_DIR}").iterdir():
-                if file in patched:
-                    continue
-                self.copy_files(file, self.arch_dir)
+        if USteps.PATCH_HEADER in self.steps:
+            if self.write:
+                patched = self.patch_main_header()
+                log.info(f"Patched {len(patched)} .inc files into the main header.")
+            else:
+                log.info("Patching the main header requires the -w flag.")
         if USteps.TRANS in self.steps:
             self.translate()
         if USteps.DIFF in self.steps:
             self.diff()
-        # Write files
+        if USteps.MC in self.steps:
+            self.mc_updater.gen_all()
+        if not self.write:
+            if self.inc_generator.has_inc_patches():
+                log.warning(
+                    f"Patches to inc files are only applied with the -w flag. This wasn't done. Find them in {get_path('{INC_PATCH_DIR}')}"
+                )
+            # Done
+            exit(0)
+
+        # Copy .inc files
+        log.info(f"Copy .inc files to {self.arch_dir}")
+        i = 0
+        arch_header = get_path("{CS_INCLUDE_DIR}").joinpath(f"{self.arch.lower()}.h")
+        for file in get_path("{C_INC_OUT_DIR}").iterdir():
+            if HeaderPatcher.file_in_main_header(arch_header, file.name):
+                continue
+            self.copy_files(file, self.arch_dir)
+            i += 1
+        self.inc_generator.apply_patches()
+        log.info(f"Copied {i} files")
+
+        i = 0
+        if self.copy_translated:
+            # Diffed files
+            log.info(f"Copy translated files to {self.arch_dir}")
+            for file in get_path("{CPP_TRANSLATOR_TRANSLATION_OUT_DIR}").iterdir():
+                self.copy_files(file, self.arch_dir)
+                i += 1
+        else:
+            # Diffed files
+            log.info(f"Copy diffed files to {self.arch_dir}")
+            for file in get_path("{CPP_TRANSLATOR_DIFF_OUT_DIR}").iterdir():
+                self.copy_files(file, self.arch_dir)
+                i += 1
+        log.info(f"Copied {i} files")
+
+        # MC tests
+        i = 0
+        mc_dir = get_path("{MC_DIR}").joinpath(self.arch_dir_name)
+        log.info(f"Copy MC test files to {mc_dir}")
+        for file in get_path("{MCUPDATER_OUT_DIR}").iterdir():
+            self.copy_files(file, mc_dir)
+            i += 1
+        log.info(f"Copied {i} files")
+
         exit(0)
 
 
@@ -162,7 +245,7 @@ def parse_args() -> argparse.Namespace:
         "-a",
         dest="arch",
         help="Name of target architecture.",
-        choices=["ARM", "PPC", "AArch64", "Alpha"],
+        choices=ARCH_LLVM_NAMING,
         required=True,
     )
     parser.add_argument(
@@ -199,9 +282,10 @@ def parse_args() -> argparse.Namespace:
             "IncGen",
             "Translate",
             "Diff",
+            "MCUpdate",
+            "PatchArchHeader",
         ],
         nargs="+",
-        type=USteps,
         default=["All"],
     )
     parser.add_argument(
@@ -223,9 +307,9 @@ def parse_args() -> argparse.Namespace:
         default=["All"],
     )
     parser.add_argument(
-        "--refactor",
-        dest="refactor",
-        help="Sets change update behavior to ease refactoring and new implementations.",
+        "--copy-translated",
+        dest="copy_translated",
+        help="Copy the translated files and not the files produced by the Differ.",
         action="store_true",
     )
     parser.add_argument(
@@ -238,14 +322,13 @@ def parse_args() -> argparse.Namespace:
     return arguments
 
 
-if __name__ == "__main__":
-    check_py_version()
-
+def main():
     args = parse_args()
     log.basicConfig(
         level=convert_loglevel(args.verbosity),
         stream=sys.stdout,
         format="%(levelname)-5s - %(message)s",
+        force=True,
     )
 
     Updater = ASUpdater(
@@ -254,8 +337,12 @@ if __name__ == "__main__":
         args.steps,
         args.inc_list,
         args.no_clean,
-        args.refactor,
+        args.copy_translated,
         args.no_auto_apply,
         args.wait_for_user,
     )
     Updater.update()
+
+
+if __name__ == "__main__":
+    main()

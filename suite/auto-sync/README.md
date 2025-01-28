@@ -1,17 +1,21 @@
 <!--
 Copyright © 2022 Rot127 <unisono@quyllur.org>
-Copyright © 2024 2022 Rot127 <unisono@quyllur.org>
 SPDX-License-Identifier: BSD-3
 -->
 
-# Architecture updater
+# Architecture updater - Auto-Sync
 
-This is Capstones updater for some architectures.
-Unfortunately not all architectures are supported yet.
+`Auto-Sync` is the architecture update tool for Capstone.
+Because the architecture modules of Capstone use mostly code from LLVM,
+we need to update this part with every LLVM release. `Auto-Sync` helps
+with this synchronization between LLVM and Capstone's modules by
+automating most of it.
 
-## Install dependencies
+Please refer to [intro.md](intro.md) for an introduction about this tool.
 
-Setup Python environment and Tree-sitter
+## Install
+
+#### Setup Python environment and Tree-sitter
 
 ```
 cd <root-dir-Capstone>
@@ -20,21 +24,18 @@ sudo apt install python3-venv
 # Setup virtual environment in Capstone root dir
 python3 -m venv ./.venv
 source ./.venv/bin/activate
+```
+
+#### Install Auto-Sync framework
+
+```
 cd suite/auto-sync/
 pip install -e .
 ```
 
-## Update
+#### Clone Capstones LLVM fork and build `llvm-tblgen`
 
-Check if your architecture is supported.
-
-```
-./src/autosync/ASUpdater.py -h
-```
-
-Clone Capstones LLVM fork and build `llvm-tblgen`
-
-```
+```bash
 git clone https://github.com/capstone-engine/llvm-capstone vendor/llvm_root/
 cd llvm-capstone
 git checkout auto-sync
@@ -46,11 +47,44 @@ cmake --build . --target llvm-tblgen --config Debug
 cd ../../
 ```
 
+#### Install `llvm-mc` and `FileCheck`
+
+Additionally, we need `llvm-mc` and `FileCheck` to generate our regression tests.
+You can build it, but it will take a lot of space on your hard drive.
+You can also get the binaries [here](https://releases.llvm.org/download.html) or
+install it with your package manager (usually something like `llvm-18-dev`).
+Just ensure it is in your `PATH` as `llvm-mc` and `FileCheck` (not as `llvm-mc-18` or similar though!).
+
+## Architecture
+
+Please read [ARCHITECTURE.md](https://github.com/capstone-engine/capstone/blob/next/docs/ARCHITECTURE.md) to understand how `Auto-Sync` works.
+
+This step is essential! Please don't skip it.
+
+## Update an architecture
+
+Updating an architecture module to the newest LLVM release, is only possible if it uses `Auto-Sync`.
+Not all arch-modules support `Auto-Sync` yet.
+
+Check if your architecture is supported.
+
+```
+./src/autosync/ASUpdater.py -h
+```
+
 Run the updater
 
 ```
 ./src/autosync/ASUpdater.py -a <ARCH>
 ```
+
+## Update procedure
+
+1. Run the `ASUpdater.py` script.
+2. Compare the functions in `<ARCH>DisassemblerExtension.*` to LLVM (search the function names in the LLVM root)
+and update them if necessary.
+3. Try to build Capstone and fix the build errors.
+
 
 ## Post-processing steps
 
@@ -60,7 +94,23 @@ you will get build errors if you try to compile Capstone.
 
 The last step to finish the update is to fix those build errors by hand.
 
-## Developer
+## Refactor an architecture
+
+Not all architecture modules support `Auto-Sync` yet.
+Here is an overview of the steps to add support for it.
+
+<hr>
+
+To refactor one of them to use `Auto-Sync` please follow the [RefactorGuide.md](RefactorGuide.md)
+
+## Adding a new architecture
+
+Adding a new architecture follows the same steps as above. With the exception that you need
+to implement all the Capstone files from scratch.
+
+Check out an `Auto-Sync` supporting architectures for guidance and open an issue if you need help.
+
+## Additional details
 
 ### Overview updated files
 
@@ -96,14 +146,7 @@ Those files are written by us:
 - `<ARCH>Mapping.*`: Binding code between the architecture module and the LLVM files. This is also where the detail is set.
 - `<ARCH>Module.*`: Interface to the Capstone core.
 
-### Update procedure
-
-1. Run the `ASUpdater.py` script.
-2. Compare the functions in `<ARCH>DisassemblerExtension.*` to LLVM (search the function names in the LLVM root)
-and update them if necessary.
-3. Try to build Capstone and fix the build errors.
-
-### Update details
+### Relevant documentation and troubleshooting
 
 **LLVM file translation**
 
@@ -129,9 +172,10 @@ Documentation about the `.inc` file generation is in the [llvm-capstone](https:/
 
 **Formatting**
 
-- If you make changes to the `CppTranslator` please format the files with `black`
+- If you make changes to the `CppTranslator` please format the files with `black` and `usort`
   ```
-  source ./.venv/bin/activate
-  pip3 install black
-  python3 -m black --line-length=120 CppTranslator/*/*.py
+  pip3 install black usort
+  python3 -m usort format src/autosync
+  python3 -m black src/autosync
   ```
+  
